@@ -51,10 +51,12 @@ The app should be invisible until needed.
 
 | Target | Value |
 |--------|-------|
-| Binary | ~108 KB |
+| Binary | ~150 KB |
 | Memory | ~11 MB |
 | Idle CPU | 0% |
-| Bundle | ~200 KB |
+| Bundle | ~250 KB |
+
+**Note:** Binary size includes ~17KB overhead from code signing (required for Accessibility permissions). Stripped unsigned binary is ~137KB.
 
 ### 4. No Over-Engineering
 Keep it simple. This is a single-purpose utility.
@@ -312,4 +314,12 @@ Or use `./build.sh -r` to reset permissions and open System Settings.
 When debugging and going in circles:
 1. **Do a web search** - macOS APIs change frequently; search for recent (2024-2025) solutions
 2. **Ask Codex/Claude** - Use `/codex` for a second opinion on tricky issues
-3. **Check NOTES.md** - Previous debugging sessions are documented there
+3. **Check NOTES.md** - Previous debugging sessions are documented there (local file only, not in Git)
+
+### Tool Compatibility
+
+**Shell command aliases**: The user's shell may have aliases that conflict with standard tools:
+- `grep` may be aliased to `rg` (ripgrep) with different flag syntax
+- When shell tools behave unexpectedly, use `command` or `\command` to bypass aliases
+- Or adapt to use the aliased tool's syntax (e.g., ripgrep patterns instead of grep)
+- For the current session, you can modify aliases as needed with shell built-ins

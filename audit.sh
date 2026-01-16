@@ -117,6 +117,22 @@ echo "  Architecture:    $ARCH_INFO"
 SYMBOL_COUNT=$(nm "$BINARY" 2>/dev/null | wc -l | tr -d ' ')
 echo "  Symbols:         $SYMBOL_COUNT"
 
+# Segment breakdown - dynamically extract all segments (skip PAGEZERO - it's virtual)
+echo ""
+echo "  Segment breakdown:"
+size -m "$BINARY" | awk '
+    /Segment __/ {
+        name = $2
+        gsub(/:$/, "", name)
+        # Skip PAGEZERO (4GB zero-fill guard page, not real file size)
+        if (name == "__PAGEZERO") next
+        size = $3
+        kb = int(size / 1024)
+        if (kb > 0) {
+            printf "    %-15s %3d KB\n", name, kb
+        }
+    }'
+
 # Test -Osize vs regular (if source available)
 if [ -f "Package.swift" ]; then
     echo ""
@@ -137,10 +153,19 @@ if [ -f "Package.swift" ]; then
     fi
 fi
 
-# Segment sizes
-SEGMENT_INFO=$(size "$BINARY" 2>/dev/null | tail -1)
-TEXT_SIZE=$(echo "$SEGMENT_INFO" | awk '{print $1}')
-DATA_SIZE=$(echo "$SEGMENT_INFO" | awk '{print $2}')
+# Build segment breakdown for report - capture all segments dynamically
+SEGMENT_TABLE=$(size -m "$BINARY" | awk '
+    /Segment __/ {
+        name = $2
+        gsub(/:$/, "", name)
+        # Skip PAGEZERO (4GB zero-fill guard page, not real file size)
+        if (name == "__PAGEZERO") next
+        size = $3
+        kb = int(size / 1024)
+        if (kb > 0) {
+            printf "| %s | %d KB |\n", name, kb
+        }
+    }')
 
 {
     echo "## 2. Binary Analysis"
@@ -152,8 +177,12 @@ DATA_SIZE=$(echo "$SEGMENT_INFO" | awk '{print $2}')
     [ "$UNSTRIPPED_SIZE" -gt 0 ] && echo "| Strip Savings | ${SAVINGS}% |"
     echo "| Architecture | arm64 |"
     echo "| Symbol Count | $SYMBOL_COUNT |"
-    echo "| __TEXT Segment | ${TEXT_SIZE} bytes |"
-    echo "| __DATA Segment | ${DATA_SIZE} bytes |"
+    echo ""
+    echo "### Segment Breakdown"
+    echo ""
+    echo "| Segment | Size |"
+    echo "|---------|------|"
+    echo "$SEGMENT_TABLE"
     echo ""
 } >> "$REPORT_FILE"
 
@@ -342,7 +371,8 @@ FEATURES=""
 check_feature() {
     local pattern="$1"
     local name="$2"
-    if grep -q "$pattern" "$MAIN_SWIFT" 2>/dev/null; then
+    # Search in both App and Core source files
+    if grep -rq "$pattern" Sources/ 2>/dev/null; then
         echo "  ✓ $name"
         FEATURES="$FEATURES\n| $name | Yes |"
     else
@@ -376,9 +406,9 @@ echo ""
 echo "▶ [7/10] Test Suite"
 echo "────────────────────────────────────────────────────────────────"
 
-TEST_OUTPUT=$(swift test 2>&1 | tail -10)
-TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -o '[0-9]* tests' | head -1 || echo "unknown")
-TEST_STATUS=$(echo "$TEST_OUTPUT" | grep -q "passed" && echo "PASSED" || echo "FAILED")
+TEST_OUTPUT=$(swift test 2>&1)
+TEST_COUNT=$(echo "$TEST_OUTPUT" | awk '/All tests.*passed/ {getline; if(/Executed/) {print $2 " tests"; exit}}' || echo "unknown")
+TEST_STATUS=$(echo "$TEST_OUTPUT" | command grep -q "passed" && echo "PASSED" || echo "FAILED")
 
 echo "  Tests: $TEST_COUNT"
 echo "  Status: $TEST_STATUS"
@@ -414,8 +444,9 @@ if [ -f "$COVERAGE_FILE" ] && [ -f "$TEST_BINARY" ]; then
     if [ -n "$COVERAGE_OUTPUT" ]; then
         # Extract coverage percentages
         CORE_COVERAGE=$(echo "$COVERAGE_OUTPUT" | awk '/Settings.swift/ {print $4}' | head -1)
-        TOTAL_LINES=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $2}')
-        COVERED_LINES=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $4}')
+        TOTAL_LINES=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $8}')
+        MISSED_LINES=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $9}')
+        COVERED_LINES=$((TOTAL_LINES - MISSED_LINES))
         TOTAL_COVERAGE=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $10}')
 
         echo "  Core library:    ${CORE_COVERAGE:-N/A}"

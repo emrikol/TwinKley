@@ -35,3 +35,13 @@ icon_sources/
 
 # Internal documentation (keep local only)
 NOTES.md
+
+# Claude Code project files (local state/cache)
+.claude/
+
+# IDE configurations
+.vscode/
+
+# Node modules (if any tooling is added)
+node_modules/
+package-lock.json
