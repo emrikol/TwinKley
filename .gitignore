@@ -32,3 +32,6 @@ xcuserdata/
 # Icon generation artifacts
 icon_sources/
 *.iconset/
+
+# Internal documentation (keep local only)
+NOTES.md
