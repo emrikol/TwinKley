@@ -212,9 +212,36 @@ For testing keypress detection and brightness sync:
 
 **AppleScript key codes for brightness:**
 - `key code 145` = Brightness DOWN
-- `key code 107` = Brightness UP
+- `key code 144` = Brightness UP
 
 These can be used to verify the event tap is working without pressing physical keys.
+
+**Gamma correction testing:**
+```bash
+# Test brightness sync across full range with gamma correction
+./scripts/test-gamma.sh
+```
+
+This script:
+1. Starts the app in debug mode
+2. Captures initial brightness
+3. Simulates pressing down to minimum, up to maximum
+4. Returns to initial brightness
+5. Shows summary with min/max values
+
+**Important AppleScript Quirk:**
+- Physical brightness keys can reach **true 0.0 and 1.0** (full range)
+- AppleScript key simulation **stops at 0.0625 (min) and 0.9375 (max)** - 16-step quantization boundaries
+- This is a limitation of simulated events, not actual hardware/API capabilities
+- For testing full 0.0-1.0 range, use **manual physical keypresses** instead of AppleScript
+- The test script is useful for automated testing, but manual verification is more reliable
+
+**Brightness adjustment utilities:**
+```bash
+# Set display brightness programmatically
+swift scripts/set_brightness.swift 0.5   # Set to 50%
+swift scripts/set_brightness.swift       # Toggle ±10%
+```
 
 ### Writing Tests
 
@@ -343,6 +370,45 @@ If you have an Apple Developer Program membership ($99/year):
 2. Select your team → Manage Certificates
 3. Create a "Developer ID Application" certificate
 4. Build: `./build.sh -s "Developer ID Application: Your Name (TEAMID)"`
+
+**Default behavior**: The build script now defaults to using the Developer ID certificate if available.
+
+### Notarization for Distribution
+
+If you want to distribute TwinKley to others (GitHub releases, direct download), you should notarize the app to prevent "unidentified developer" warnings.
+
+**Requirements:**
+- Apple Developer Program membership ($99/year)
+- Developer ID Application certificate (see Option 2 above)
+- App-specific password from appleid.apple.com
+
+**Quick setup:**
+
+```bash
+# 1. Build with hardened runtime (automatic with Developer ID signing)
+./build.sh
+
+# 2. Package the app
+cd ~/Applications
+zip -r TwinKley.zip TwinKley.app
+
+# 3. Submit for notarization (first time setup - follow prompts)
+xcrun notarytool submit TwinKley.zip --keychain-profile "TwinKley-Notary" --wait
+
+# 4. If approved, staple the ticket
+xcrun stapler staple ~/Applications/TwinKley.app
+
+# 5. Verify
+spctl -a -vvv ~/Applications/TwinKley.app
+```
+
+**Helper scripts:**
+
+- `scripts/check-notarization.sh` - Check status of a pending notarization and staple when ready
+
+**Note**: The build script automatically enables hardened runtime when using a Developer ID certificate. The required entitlements (`TwinKley.entitlements`) allow loading private frameworks with `dlopen`.
+
+For detailed notarization setup instructions, see **NOTES.md** → "Developer ID Signing and Notarization (v1.8)".
 
 ### Verifying Your Certificate
 

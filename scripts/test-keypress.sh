@@ -11,7 +11,7 @@
 #
 # AppleScript key codes that trigger brightness:
 #   key code 145 = Brightness DOWN
-#   key code 107 = Brightness UP
+#   key code 144 = Brightness UP
 #
 
 set -e
@@ -46,8 +46,8 @@ if [[ "$1" == "--auto" ]]; then
     osascript -e 'tell application "System Events" to key code 145'
     sleep 1
 
-    echo "Sending brightness UP (key code 107)..."
-    osascript -e 'tell application "System Events" to key code 107'
+    echo "Sending brightness UP (key code 144)..."
+    osascript -e 'tell application "System Events" to key code 144'
     sleep 1
 
     echo

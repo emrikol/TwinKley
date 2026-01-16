@@ -1,0 +1,100 @@
+# SwiftLint configuration for KeyboardBrightnessSync
+
+# Paths to include
+included:
+  - Sources
+  - Tests
+
+# Paths to exclude
+excluded:
+  - .build
+  - Package.swift
+
+# Rules configuration
+disabled_rules:
+  - trailing_whitespace      # Can be noisy
+  - line_length              # We'll use opt_in warning instead
+  - opening_brace            # Conflicts with SwiftFormat's wrapMultilineStatementBraces
+
+opt_in_rules:
+  - empty_count              # Prefer isEmpty over count == 0
+  - empty_string             # Prefer isEmpty over == ""
+  # force_unwrapping - disabled: unavoidable with private frameworks
+  # implicitly_unwrapped_optional - disabled: needed for some system APIs
+  - private_outlet
+  - private_action
+  - sorted_imports
+  - vertical_whitespace_closing_braces
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - discouraged_object_literal
+  - empty_collection_literal
+  - enum_case_associated_values_count
+  - fatal_error_message
+  - first_where
+  - flatmap_over_map_reduce
+  - identical_operands
+  - last_where
+  - legacy_multiple
+  - literal_expression_end_indentation
+  - lower_acl_than_parent
+  - modifier_order
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - yoda_condition
+
+# Rule customization
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+  ignores_comments: true
+
+type_body_length:
+  warning: 300
+  error: 500
+
+file_length:
+  warning: 750      # main.swift is ~700 lines by design (single-file app)
+  error: 1000
+
+function_body_length:
+  warning: 60
+  error: 100
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+nesting:
+  type_level: 2
+  function_level: 3
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - i
+    - x
+    - y
+
+type_name:
+  min_length: 3
+  max_length: 50
+
+# Reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
+reporter: "xcode"

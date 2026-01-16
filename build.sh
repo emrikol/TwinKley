@@ -4,28 +4,86 @@ set -e
 # Parse arguments
 INSTALL_FLAG=false
 RESET_PERMS_FLAG=false
-SIGN_IDENTITY="-"  # Default: ad-hoc signing
-while getopts "irs:h" opt; do
+RELEASE_MODE=false
+SKIP_CHECKS=false
+SIGN_IDENTITY=""  # Auto-detect based on mode
+
+while getopts "irdrs:h-:" opt; do
 	case $opt in
 		i) INSTALL_FLAG=true ;;
 		r) RESET_PERMS_FLAG=true ;;
+		d) SKIP_CHECKS=true ;;
 		s) SIGN_IDENTITY="$OPTARG" ;;
+		-)
+			case "$OPTARG" in
+				dev) SKIP_CHECKS=true ;;
+				release) RELEASE_MODE=true ;;
+				*) echo "Unknown option: --$OPTARG" >&2; exit 1 ;;
+			esac
+			;;
 		h)
-			echo "Usage: ./build.sh [-i] [-r] [-s identity]"
-			echo "  -i            Install and run after build (kills existing instance)"
-			echo "  -r            Reset accessibility permissions (use after first build or if keys don't work)"
-			echo "  -s identity   Sign with named certificate (e.g., 'TwinKley Development')"
-			echo "                Default: ad-hoc signing (-), which requires re-adding permissions after each build"
+			echo "Usage: ./build.sh [options]"
 			echo ""
-			echo "To create a signing certificate, run: ./scripts/setup-signing.sh"
+			echo "Options:"
+			echo "  -i              Install and run after build (kills existing instance)"
+			echo "  -r              Reset accessibility permissions"
+			echo "  -d, --dev       Skip checks for fast iteration (still runs full checks by default)"
+			echo "  --release       Release mode: use Developer ID cert + hardened runtime for notarization"
+			echo "  -s IDENTITY     Override signing certificate (default: auto-detect)"
+			echo "  -h              Show this help"
+			echo ""
+			echo "Build modes:"
+			echo "  ./build.sh           Normal build (Apple Development, all checks, ~10s)"
+			echo "  ./build.sh -d -i     Fast iteration (Apple Development, skip checks, ~3s)"
+			echo "  ./build.sh --release Release build (Developer ID, all checks, notarization-ready, ~15s)"
+			echo ""
+			echo "Certificate auto-detection:"
+			echo "  Normal/Dev:  Apple Development > TwinKley Development > ad-hoc"
+			echo "  Release:     Developer ID Application"
+			echo ""
+			echo "Examples:"
+			echo "  ./build.sh -d -i                    # Fast dev iteration"
+			echo "  ./build.sh -i                       # Normal build with checks"
+			echo "  ./build.sh --release                # Prepare for distribution"
+			echo ""
+			echo "Certificate setup:"
+			echo "  • Apple Development: Xcode → Settings → Accounts → Manage Certificates → +"
+			echo "  • Developer ID:      Requires Apple Developer Program (\$99/year)"
+			echo "  • Self-signed (free): ./scripts/setup-signing.sh"
 			exit 0
 			;;
 		*) exit 1 ;;
 	esac
 done
 
+# Auto-detect signing identity if not specified
+if [ -z "$SIGN_IDENTITY" ]; then
+	if [ "$RELEASE_MODE" = true ]; then
+		# Release mode: Use Developer ID for notarization
+		SIGN_IDENTITY="Developer ID Application: Derrick Tennant (3T9RX85H44)"
+	else
+		# Normal/dev mode: Try to find best development certificate
+		if security find-identity -v -p codesigning | grep -q "Apple Development"; then
+			SIGN_IDENTITY="Apple Development"
+		elif security find-identity -v -p codesigning | grep -q "TwinKley Development"; then
+			SIGN_IDENTITY="TwinKley Development"
+		else
+			SIGN_IDENTITY="-"  # Ad-hoc signing
+			echo "⚠️  No signing certificate found - using ad-hoc (permissions reset each build)"
+			echo "   Create one: Xcode → Settings → Accounts → Manage Certificates → + → Apple Development"
+			echo ""
+		fi
+	fi
+fi
+
 echo "══════════════════════════════════════════"
-echo "  ☀️ TwinK[l]ey ⌨️ - Build Script"
+if [ "$RELEASE_MODE" = true ]; then
+	echo "  ☀️ TwinK[l]ey ⌨️ - Release Build"
+elif [ "$SKIP_CHECKS" = true ]; then
+	echo "  ☀️ TwinK[l]ey ⌨️ - Fast Build"
+else
+	echo "  ☀️ TwinK[l]ey ⌨️ - Build"
+fi
 echo "══════════════════════════════════════════"
 
 cd "$(dirname "$0")"
@@ -34,40 +92,45 @@ APP_NAME="TwinKley"
 APP_DIR="$HOME/Applications/$APP_NAME.app"
 BUNDLE_ID="com.local.$APP_NAME"
 
-# Step 1: Check formatting
-echo ""
-echo "▶ Checking code formatting..."
-if command -v swiftformat &> /dev/null; then
-	swiftformat --lint Sources/ Tests/ || {
-		echo "❌ Formatting check failed. Run 'swiftformat Sources/ Tests/' to fix."
+if [ "$SKIP_CHECKS" = false ]; then
+	# Step 1: Check formatting
+	echo ""
+	echo "▶ Checking code formatting..."
+	if command -v swiftformat &> /dev/null; then
+		swiftformat --lint Sources/ Tests/ || {
+			echo "❌ Formatting check failed. Run 'swiftformat Sources/ Tests/' to fix."
+			exit 1
+		}
+		echo "  ✓ Formatting OK"
+	else
+		echo "  ⚠ swiftformat not found (install: brew install swiftformat)"
+	fi
+
+	# Step 2: Lint code
+	echo ""
+	echo "▶ Linting code..."
+	if command -v swiftlint &> /dev/null; then
+		swiftlint lint --strict Sources/ Tests/ || {
+			echo "❌ Linting failed. Fix issues above."
+			exit 1
+		}
+		echo "  ✓ Linting OK"
+	else
+		echo "  ⚠ swiftlint not found (install: brew install swiftlint)"
+	fi
+
+	# Step 3: Run tests (fail fast)
+	echo ""
+	echo "▶ Running tests..."
+	swift test --parallel || {
+		echo "❌ Tests failed."
 		exit 1
 	}
-	echo "  ✓ Formatting OK"
+	echo "  ✓ All tests passed"
 else
-	echo "  ⚠ swiftformat not found (install: brew install swiftformat)"
+	echo ""
+	echo "▶ Skipping checks (use './build.sh' without -d for full checks)"
 fi
-
-# Step 2: Lint code
-echo ""
-echo "▶ Linting code..."
-if command -v swiftlint &> /dev/null; then
-	swiftlint lint --strict Sources/ Tests/ || {
-		echo "❌ Linting failed. Fix issues above."
-		exit 1
-	}
-	echo "  ✓ Linting OK"
-else
-	echo "  ⚠ swiftlint not found (install: brew install swiftlint)"
-fi
-
-# Step 3: Run tests (fail fast)
-echo ""
-echo "▶ Running tests..."
-swift test --parallel || {
-	echo "❌ Tests failed."
-	exit 1
-}
-echo "  ✓ All tests passed"
 
 # Step 4: Build release
 echo ""
@@ -86,26 +149,17 @@ strip -S -x .build/release/$APP_NAME -o "$APP_DIR/Contents/MacOS/$APP_NAME"
 BINARY_SIZE=$(ls -lh "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '{print $5}')
 echo "  Binary size: $BINARY_SIZE (stripped)"
 
-# Step 4b: Sign with consistent identifier (required for stable TCC permissions)
-# Ad-hoc signing (-) changes every build, breaking accessibility permissions
-# Using a named certificate (via -s flag) provides stable signatures
-if [ "$SIGN_IDENTITY" = "-" ]; then
-	codesign --force --sign - --identifier "$BUNDLE_ID" "$APP_DIR" 2>/dev/null
-	echo "  Code signed: $BUNDLE_ID (ad-hoc)"
-	echo "  ⚠ Tip: Use -s 'Certificate Name' for stable permissions (see ./scripts/setup-signing.sh)"
-else
-	codesign --force --sign "$SIGN_IDENTITY" --identifier "$BUNDLE_ID" "$APP_DIR" 2>/dev/null
-	echo "  Code signed: $BUNDLE_ID (identity: $SIGN_IDENTITY)"
-fi
-
-# Update bundle folder timestamp so Finder shows correct modification time
-touch "$APP_DIR"
+# Signing happens after all resources are added (see Step 10b below)
 
 # Step 7: Generate and optimize icon
-echo ""
-echo "▶ Generating app icon..."
-ICONSET_DIR=$(mktemp -d)/AppIcon.iconset
-mkdir -p "$ICONSET_DIR"
+if [ "$SKIP_CHECKS" = true ] && [ -f "$APP_DIR/Contents/Resources/AppIcon.icns" ]; then
+	echo ""
+	echo "▶ Using existing icon (fast mode - delete to regenerate)"
+else
+	echo ""
+	echo "▶ Generating app icon..."
+	ICONSET_DIR=$(mktemp -d)/AppIcon.iconset
+	mkdir -p "$ICONSET_DIR"
 
 # Generate icon PNGs using Swift
 swift - "$ICONSET_DIR" << 'SWIFT_ICON'
@@ -164,55 +218,70 @@ for (name, size) in [
 }
 SWIFT_ICON
 
-# Step 8: Measure raw PNG sizes, then optimize
-RAW_PNG_SIZE=$(du -sk "$ICONSET_DIR" | cut -f1)
-ICON_OPTIMIZER="none"
+	# Step 8: Measure raw PNG sizes, then optimize
+	RAW_PNG_SIZE=$(du -sk "$ICONSET_DIR" | cut -f1)
+	ICON_OPTIMIZER="none"
 
-if command -v pngquant &> /dev/null; then
-    echo "▶ Optimizing icons with pngquant..."
-    ICON_OPTIMIZER="pngquant"
-    for f in "$ICONSET_DIR"/*.png; do
-        pngquant --force --quality=50-70 --speed=1 --output "$f" "$f" 2>/dev/null
-    done
-elif [ -x "/Applications/ImageOptim.app/Contents/MacOS/ImageOptim" ]; then
-    echo "▶ Optimizing icons with ImageOptim..."
-    ICON_OPTIMIZER="ImageOptim"
-    /Applications/ImageOptim.app/Contents/MacOS/ImageOptim "$ICONSET_DIR"/*.png 2>/dev/null &
-    OPTIM_PID=$!
-    for i in {1..30}; do
-        if ! kill -0 $OPTIM_PID 2>/dev/null; then break; fi
-        sleep 1
-    done
-    kill $OPTIM_PID 2>/dev/null || true
-else
-    echo "  (No optimizer found - install pngquant: brew install pngquant)"
+	if command -v pngquant &> /dev/null; then
+		echo "▶ Optimizing icons with pngquant..."
+		ICON_OPTIMIZER="pngquant"
+		for f in "$ICONSET_DIR"/*.png; do
+			pngquant --force --quality=50-70 --speed=1 --output "$f" "$f" 2>/dev/null
+		done
+	elif [ -x "/Applications/ImageOptim.app/Contents/MacOS/ImageOptim" ]; then
+		echo "▶ Optimizing icons with ImageOptim..."
+		ICON_OPTIMIZER="ImageOptim"
+		/Applications/ImageOptim.app/Contents/MacOS/ImageOptim "$ICONSET_DIR"/*.png 2>/dev/null &
+		OPTIM_PID=$!
+		for i in {1..30}; do
+			if ! kill -0 $OPTIM_PID 2>/dev/null; then break; fi
+			sleep 1
+		done
+		kill $OPTIM_PID 2>/dev/null || true
+	else
+		echo "  (No optimizer found - install pngquant: brew install pngquant)"
+	fi
+
+	OPTIMIZED_PNG_SIZE=$(du -sk "$ICONSET_DIR" | cut -f1)
+
+	# Step 9: Build icns
+	echo "▶ Building icns..."
+	iconutil -c icns "$ICONSET_DIR" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
+	rm -rf "$(dirname "$ICONSET_DIR")"
+
+	ICON_SIZE=$(ls -lh "$APP_DIR/Contents/Resources/AppIcon.icns" | awk '{print $5}')
+	ICON_SIZE_KB=$(wc -c < "$APP_DIR/Contents/Resources/AppIcon.icns" | awk '{print int($1/1024)}')
+
+	# Calculate PNG compression ratio
+	if [ "$RAW_PNG_SIZE" -gt 0 ]; then
+		PNG_REDUCTION=$((100 - (OPTIMIZED_PNG_SIZE * 100 / RAW_PNG_SIZE)))
+	else
+		PNG_REDUCTION=0
+	fi
+
+	echo "  Icon optimization:"
+	echo "    Raw PNGs:      ${RAW_PNG_SIZE}KB"
+	echo "    After $ICON_OPTIMIZER: ${OPTIMIZED_PNG_SIZE}KB (${PNG_REDUCTION}% smaller)"
+	echo "    Final icns:    ${ICON_SIZE_KB}KB (iconutil re-encodes to 32-bit)"
 fi
-
-OPTIMIZED_PNG_SIZE=$(du -sk "$ICONSET_DIR" | cut -f1)
-
-# Step 9: Build icns
-echo "▶ Building icns..."
-iconutil -c icns "$ICONSET_DIR" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
-rm -rf "$(dirname "$ICONSET_DIR")"
-
-ICON_SIZE=$(ls -lh "$APP_DIR/Contents/Resources/AppIcon.icns" | awk '{print $5}')
-ICON_SIZE_KB=$(wc -c < "$APP_DIR/Contents/Resources/AppIcon.icns" | awk '{print int($1/1024)}')
-
-# Calculate PNG compression ratio
-if [ "$RAW_PNG_SIZE" -gt 0 ]; then
-    PNG_REDUCTION=$((100 - (OPTIMIZED_PNG_SIZE * 100 / RAW_PNG_SIZE)))
-else
-    PNG_REDUCTION=0
-fi
-
-echo "  Icon optimization:"
-echo "    Raw PNGs:      ${RAW_PNG_SIZE}KB"
-echo "    After $ICON_OPTIMIZER: ${OPTIMIZED_PNG_SIZE}KB (${PNG_REDUCTION}% smaller)"
-echo "    Final icns:    ${ICON_SIZE_KB}KB (iconutil re-encodes to 32-bit)"
 
 # Save build stats for audit script
 BINARY_SIZE_KB=$(wc -c < "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '{print int($1/1024)}')
 UNSTRIPPED_SIZE_KB=$(wc -c < ".build/release/$APP_NAME" | awk '{print int($1/1024)}')
+
+# Get icon stats (may be from existing icon if dev mode skipped regeneration)
+if [ -f "$APP_DIR/Contents/Resources/AppIcon.icns" ]; then
+	ICON_SIZE_KB=$(wc -c < "$APP_DIR/Contents/Resources/AppIcon.icns" | awk '{print int($1/1024)}')
+else
+	ICON_SIZE_KB=0
+fi
+
+# Set defaults for icon stats if not generated this build
+: ${RAW_PNG_SIZE:=0}
+: ${OPTIMIZED_PNG_SIZE:=0}
+: ${PNG_REDUCTION:=0}
+: ${ICON_OPTIMIZER:="cached"}
+
 cat > "$APP_DIR/Contents/Resources/build-stats.json" << STATS_EOF
 {
   "buildDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -271,6 +340,43 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
 </dict>
 </plist>
 EOF
+
+# Step 10b: Sign app bundle (AFTER all resources are added)
+echo ""
+echo "▶ Signing app bundle..."
+if [ "$SIGN_IDENTITY" = "-" ]; then
+	# Ad-hoc signing (no hardened runtime)
+	codesign --force --sign - --identifier "$BUNDLE_ID" "$APP_DIR" 2>/dev/null
+	echo "  Signed: ad-hoc (⚠️  permissions reset each build)"
+	echo "  Tip: Create Apple Development cert in Xcode for stable permissions"
+else
+	# Sign with hardened runtime
+	ENTITLEMENTS="TwinKley.entitlements"
+
+	# Determine if we need timestamp (Developer ID only)
+	if [[ "$SIGN_IDENTITY" == "Developer ID"* ]]; then
+		# Developer ID: Use timestamp for notarization
+		codesign --force --deep --options runtime --timestamp \
+			--entitlements "$ENTITLEMENTS" \
+			--sign "$SIGN_IDENTITY" \
+			--identifier "$BUNDLE_ID" \
+			"$APP_DIR" 2>/dev/null
+		echo "  Signed: $SIGN_IDENTITY"
+		echo "  ✓ Hardened runtime enabled (notarization-ready)"
+	else
+		# Apple Development or self-signed: No timestamp needed
+		codesign --force --deep --options runtime \
+			--entitlements "$ENTITLEMENTS" \
+			--sign "$SIGN_IDENTITY" \
+			--identifier "$BUNDLE_ID" \
+			"$APP_DIR" 2>/dev/null
+		echo "  Signed: $SIGN_IDENTITY"
+		echo "  ✓ Permissions persist across rebuilds"
+	fi
+fi
+
+# Update bundle folder timestamp so Finder shows correct modification time
+touch "$APP_DIR"
 
 # Step 11: Create LaunchAgent
 echo ""
