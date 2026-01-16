@@ -366,4 +366,27 @@ final class SettingsTests: XCTestCase {
 		// Should NOT save old key name
 		XCTAssertFalse(jsonString.contains("\"keypressSyncEnabled\""))
 	}
+
+	func testMissingLiveSyncKeyDefaultsToTrue() throws {
+		// Test that when neither liveSyncEnabled nor keypressSyncEnabled exists,
+		// it defaults to true (line 79 in Settings.swift)
+		let jsonWithoutLiveSyncKey = """
+		{
+			"timedSyncEnabled": true,
+			"timedSyncIntervalMs": 5000,
+			"pauseTimedSyncOnBattery": false,
+			"pauseTimedSyncOnLowBattery": true,
+			"brightnessGamma": 1.5
+		}
+		"""
+
+		let data = jsonWithoutLiveSyncKey.data(using: .utf8)!
+		let decoder = JSONDecoder()
+		let settings = try decoder.decode(Settings.self, from: data)
+
+		// Should default to true when key is missing
+		XCTAssertTrue(settings.liveSyncEnabled)
+		XCTAssertTrue(settings.timedSyncEnabled)
+		XCTAssertEqual(settings.timedSyncIntervalMs, 5000)
+	}
 }
