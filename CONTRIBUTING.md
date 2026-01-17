@@ -35,18 +35,32 @@ brew install swiftlint swiftformat pngquant
 
 This project uses **Swift Package Manager (SPM)**, the standard build system for Swift.
 
+#### Build Script Modes
+
+The `build.sh` script provides multiple build modes for different workflows:
+
 ```bash
-# Debug build
-swift build
+# Fast iteration (skip checks, Apple Development cert)
+./build.sh -d -i
 
-# Release build
-swift build -c release
+# Normal build (all checks, Apple Development cert)
+./build.sh -i
 
-# Build and install app bundle
-./build.sh
+# Release build (Developer ID cert, hardened runtime)
+./build.sh --release
+
+# Distribution build (notarized for public release)
+./build.sh --release --notarize
 ```
 
-### Common SPM Commands
+**See all options:**
+```bash
+./build.sh -h
+```
+
+#### Direct SPM Commands
+
+You can also use SPM directly for basic builds:
 
 ```bash
 swift build              # Build debug
@@ -55,6 +69,8 @@ swift test               # Run tests (requires Xcode)
 swift package clean      # Clean build artifacts
 swift package update     # Update dependencies
 ```
+
+**Note**: Using `./build.sh` is recommended as it handles code signing, app bundle creation, icon generation, and installation.
 
 ## Project Structure
 
@@ -380,35 +396,49 @@ If you want to distribute TwinKley to others (GitHub releases, direct download),
 **Requirements:**
 - Apple Developer Program membership ($99/year)
 - Developer ID Application certificate (see Option 2 above)
-- App-specific password from appleid.apple.com
+- App-specific password from appleid.apple.com (for notarytool credentials)
 
-**Quick setup:**
+**One-time setup:**
 
 ```bash
-# 1. Build with hardened runtime (automatic with Developer ID signing)
-./build.sh
-
-# 2. Package the app
-cd ~/Applications
-zip -r TwinKley.zip TwinKley.app
-
-# 3. Submit for notarization (first time setup - follow prompts)
-xcrun notarytool submit TwinKley.zip --keychain-profile "TwinKley-Notary" --wait
-
-# 4. If approved, staple the ticket
-xcrun stapler staple ~/Applications/TwinKley.app
-
-# 5. Verify
-spctl -a -vvv ~/Applications/TwinKley.app
+# Store notarization credentials in keychain
+xcrun notarytool store-credentials "notarytool" \
+  --apple-id "your-apple-id@example.com" \
+  --team-id "YOUR_TEAM_ID" \
+  --password "xxxx-xxxx-xxxx-xxxx"  # App-specific password
 ```
 
-**Helper scripts:**
+Get app-specific password at: https://appleid.apple.com/account/manage
 
-- `scripts/check-notarization.sh` - Check status of a pending notarization and staple when ready
+**Build and notarize (automated):**
+
+```bash
+# Build, sign, notarize, and staple in one command
+./build.sh --release --notarize
+```
+
+This automatically:
+1. Builds with Developer ID certificate
+2. Enables hardened runtime
+3. Submits to Apple notarization service
+4. Waits for approval (1-5 minutes)
+5. Staples the ticket to the app
+
+**Verify notarization:**
+
+```bash
+spctl -a -vv ~/Applications/TwinKley.app
+# Should show: accepted
+#              source=Notarized Developer ID
+```
+
+**For detailed documentation**, see `DISTRIBUTION-WORKFLOW.md` which covers:
+- Build modes (dev, release, notarization)
+- Prerequisites and setup
+- Distribution checklist
+- Troubleshooting
 
 **Note**: The build script automatically enables hardened runtime when using a Developer ID certificate. The required entitlements (`TwinKley.entitlements`) allow loading private frameworks with `dlopen`.
-
-For detailed notarization setup instructions, see **NOTES.md** → "Developer ID Signing and Notarization (v1.8)".
 
 ### Verifying Your Certificate
 

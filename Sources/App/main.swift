@@ -5,32 +5,32 @@ import TwinKleyCore
 
 // MARK: - Debug Mode
 
-let isDebugMode = CommandLine.arguments.contains("--debug")
+private let debugEnabledViaCLI = CommandLine.arguments.contains("--debug")
+private var debugEnabled = CommandLine.arguments.contains("--debug")
 
 // Debug log file for capturing output when running in background
-private let debugLogURL: URL? = {
-	guard isDebugMode else { return nil }
+private var debugLogURL: URL? {
+	guard debugEnabled else { return nil }
 	return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".twinkley-debug.log")
-}()
+}
 
 func debugLog(_ message: String) {
-	if isDebugMode {
-		let timestamp = ISO8601DateFormatter().string(from: Date())
-		let line = "[\(timestamp)] \(message)\n"
-		print(line, terminator: "")
-		// Also write to log file for background debugging
-		if let url = debugLogURL,
-		   let data = line.data(using: .utf8)
-		{
-			if FileManager.default.fileExists(atPath: url.path) {
-				if let handle = try? FileHandle(forWritingTo: url) {
-					handle.seekToEndOfFile()
-					handle.write(data)
-					handle.closeFile()
-				}
-			} else {
-				try? data.write(to: url)
+	guard debugEnabled else { return }
+	let timestamp = ISO8601DateFormatter().string(from: Date())
+	let line = "[\(timestamp)] \(message)\n"
+	print(line, terminator: "")
+	// Also write to log file for background debugging
+	if let url = debugLogURL,
+	   let data = line.data(using: .utf8)
+	{
+		if FileManager.default.fileExists(atPath: url.path) {
+			if let handle = try? FileHandle(forWritingTo: url) {
+				handle.seekToEndOfFile()
+				handle.write(data)
+				handle.closeFile()
 			}
+		} else {
+			try? data.write(to: url)
 		}
 	}
 }
@@ -234,6 +234,16 @@ class BrightnessKeyMonitor {
 	}
 
 	private func handleEvent(type: CGEventType, event: CGEvent) {
+		// Handle event tap being disabled by macOS (happens after sleep/wake, timeout, etc.)
+		// kCGEventTapDisabledByTimeout = 0xFFFFFFFE, kCGEventTapDisabledByUserInput = 0xFFFFFFFD
+		if type.rawValue == 0xFFFFFFFE || type.rawValue == 0xFFFFFFFD {
+			debugLog("⚠️  Event tap disabled by macOS (type=\(type.rawValue)) - re-enabling")
+			if let tap = eventTap {
+				CGEvent.tapEnable(tap: tap, enable: true)
+			}
+			return
+		}
+
 		// Check for regular key events (Fn+F1/F2)
 		if type == .keyDown {
 			let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
@@ -253,8 +263,9 @@ class BrightnessKeyMonitor {
 			let keyCode = (data1 >> 16) & 0xFF
 			// keyState: 0xA = down, 0xB = up (unused, we trigger on any)
 
-			// Check if it's brightness (keyCode 2, 3 on older Macs, 6 on M4)
-			if keyCode == nxKeytypeBrightnessUp || keyCode == nxKeytypeBrightnessDown || keyCode == 6 {
+			// Check if it's brightness
+			// keyCode 2/3 = older Macs, 6 = M4, 7 = some wake/power states
+			if keyCode == nxKeytypeBrightnessUp || keyCode == nxKeytypeBrightnessDown || keyCode == 6 || keyCode == 7 {
 				debugLog("Brightness event detected (keyCode=\(keyCode))")
 				DispatchQueue.main.async { [weak self] in
 					self?.onBrightnessKeyPressed?()
@@ -698,6 +709,66 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		linkField.attributedStringValue = linkString
 
 		alert.accessoryView = linkField
+
+		// Find and make the alert's icon double-clickable for debug toggle
+		// Traverse view hierarchy to find the NSImageView (the icon)
+		let window = alert.window
+		if let iconView = findIconImageView(in: window.contentView) {
+			let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(iconDoubleClicked))
+			clickGesture.numberOfClicksRequired = 2
+			iconView.addGestureRecognizer(clickGesture)
+		}
+
+		alert.runModal()
+	}
+
+	/// Recursively find the NSImageView in the alert that contains the icon
+	private func findIconImageView(in view: NSView?) -> NSImageView? {
+		guard let view else { return nil }
+
+		// Check if this view is an NSImageView with the app icon
+		if let imageView = view as? NSImageView,
+		   imageView.image === NSApp.applicationIconImage {
+			return imageView
+		}
+
+		// Recursively search subviews
+		for subview in view.subviews {
+			if let found = findIconImageView(in: subview) {
+				return found
+			}
+		}
+
+		return nil
+	}
+
+	@objc
+	private func iconDoubleClicked() {
+		// Don't allow disabling debug mode if it was enabled via CLI
+		if debugEnabledViaCLI && debugEnabled {
+			let alert = NSAlert()
+			alert.messageText = "Debug Mode"
+			alert.informativeText = "Debug mode was enabled via --debug flag and cannot be disabled at runtime."
+			alert.alertStyle = .informational
+			alert.addButton(withTitle: "OK")
+			alert.runModal()
+			return
+		}
+
+		// Toggle debug mode
+		debugEnabled.toggle()
+
+		// Log the toggle
+		debugLog("Debug mode \(debugEnabled ? "enabled" : "disabled") via UI")
+
+		// Show confirmation alert
+		let alert = NSAlert()
+		alert.messageText = "Debug Mode \(debugEnabled ? "Enabled" : "Disabled")"
+		alert.informativeText = debugEnabled
+			? "Debug logs will be written to ~/.twinkley-debug.log\n\nDouble-click the icon again to disable."
+			: "Debug logging has been disabled."
+		alert.alertStyle = .informational
+		alert.addButton(withTitle: "OK")
 		alert.runModal()
 	}
 

@@ -90,10 +90,19 @@ launchctl unload ~/Library/LaunchAgents/com.local.TwinKley.plist
 
 ### Debug Mode
 
-Run with debug output:
+Debug logs are written to `~/.twinkley-debug.log` and include timestamps, brightness events, and sync operations.
+
+**Enable at startup:**
 ```bash
 ~/Applications/TwinKley.app/Contents/MacOS/TwinKley --debug
 ```
+
+**Toggle during runtime (no restart needed):**
+1. Click the menu bar icon → "About TwinK[l]ey"
+2. Double-click the app icon at the top
+3. Debug mode will toggle on/off with a confirmation message
+
+This is useful for diagnosing issues without restarting the app. Perfect for investigating sync problems after sleep/wake cycles or other events.
 
 ## Configuration
 

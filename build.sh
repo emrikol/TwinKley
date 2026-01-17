@@ -6,6 +6,8 @@ INSTALL_FLAG=false
 RESET_PERMS_FLAG=false
 RELEASE_MODE=false
 SKIP_CHECKS=false
+UNIVERSAL_BUILD=false
+NOTARIZE=false
 SIGN_IDENTITY=""  # Auto-detect based on mode
 
 while getopts "irdrs:h-:" opt; do
@@ -18,6 +20,8 @@ while getopts "irdrs:h-:" opt; do
 			case "$OPTARG" in
 				dev) SKIP_CHECKS=true ;;
 				release) RELEASE_MODE=true ;;
+				universal) UNIVERSAL_BUILD=true ;;
+				notarize) NOTARIZE=true ;;
 				*) echo "Unknown option: --$OPTARG" >&2; exit 1 ;;
 			esac
 			;;
@@ -28,14 +32,17 @@ while getopts "irdrs:h-:" opt; do
 			echo "  -i              Install and run after build (kills existing instance)"
 			echo "  -r              Reset accessibility permissions"
 			echo "  -d, --dev       Skip checks for fast iteration (still runs full checks by default)"
-			echo "  --release       Release mode: use Developer ID cert + hardened runtime for notarization"
+			echo "  --release       Release mode: use Developer ID cert + hardened runtime"
+			echo "  --universal     Build universal binary (arm64 + x86_64)"
+			echo "  --notarize      Notarize and staple the app (requires --release)"
 			echo "  -s IDENTITY     Override signing certificate (default: auto-detect)"
 			echo "  -h              Show this help"
 			echo ""
 			echo "Build modes:"
-			echo "  ./build.sh           Normal build (Apple Development, all checks, ~10s)"
-			echo "  ./build.sh -d -i     Fast iteration (Apple Development, skip checks, ~3s)"
-			echo "  ./build.sh --release Release build (Developer ID, all checks, notarization-ready, ~15s)"
+			echo "  ./build.sh                    Normal build (Apple Development, all checks, ~10s)"
+			echo "  ./build.sh -d -i              Fast iteration (Apple Development, skip checks, ~3s)"
+			echo "  ./build.sh --release          Release build (Developer ID, hardened runtime, ~15s)"
+			echo "  ./build.sh --release --universal --notarize  Full distribution build (~60s)"
 			echo ""
 			echo "Certificate auto-detection:"
 			echo "  Normal/Dev:  Apple Development > TwinKley Development > ad-hoc"
@@ -134,8 +141,31 @@ fi
 
 # Step 4: Build release
 echo ""
-echo "▶ Building release..."
-swift build -c release
+if [ "$UNIVERSAL_BUILD" = true ]; then
+	echo "▶ Building universal binary (arm64 + x86_64)..."
+
+	# Build for arm64
+	echo "  Building arm64..."
+	swift build -c release --arch arm64
+
+	# Build for x86_64
+	echo "  Building x86_64..."
+	swift build -c release --arch x86_64
+
+	# Combine with lipo
+	echo "  Combining architectures..."
+	mkdir -p .build/universal
+	lipo -create \
+		.build/arm64-apple-macosx/release/$APP_NAME \
+		.build/x86_64-apple-macosx/release/$APP_NAME \
+		-output .build/universal/$APP_NAME
+
+	BUILT_BINARY=".build/universal/$APP_NAME"
+else
+	echo "▶ Building release ($(uname -m))..."
+	swift build -c release
+	BUILT_BINARY=".build/release/$APP_NAME"
+fi
 
 # Step 6: Create app bundle structure
 echo ""
@@ -144,7 +174,7 @@ mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 
 # Step 4: Copy and strip binary (removes debug symbols, ~30% size reduction)
-strip -S -x .build/release/$APP_NAME -o "$APP_DIR/Contents/MacOS/$APP_NAME"
+strip -S -x "$BUILT_BINARY" -o "$APP_DIR/Contents/MacOS/$APP_NAME"
 
 BINARY_SIZE=$(ls -lh "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '{print $5}')
 echo "  Binary size: $BINARY_SIZE (stripped)"
@@ -267,7 +297,7 @@ fi
 
 # Save build stats for audit script
 BINARY_SIZE_KB=$(wc -c < "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '{print int($1/1024)}')
-UNSTRIPPED_SIZE_KB=$(wc -c < ".build/release/$APP_NAME" | awk '{print int($1/1024)}')
+UNSTRIPPED_SIZE_KB=$(wc -c < "$BUILT_BINARY" | awk '{print int($1/1024)}')
 
 # Get icon stats (may be from existing icon if dev mode skipped regeneration)
 if [ -f "$APP_DIR/Contents/Resources/AppIcon.icns" ]; then
@@ -373,6 +403,80 @@ else
 		echo "  Signed: $SIGN_IDENTITY"
 		echo "  ✓ Permissions persist across rebuilds"
 	fi
+fi
+
+# Step 10c: Notarize and staple (if requested)
+if [ "$NOTARIZE" = true ]; then
+	echo ""
+	echo "▶ Notarizing app..."
+
+	# Check prerequisites
+	if [ "$RELEASE_MODE" != true ]; then
+		echo "  ❌ Notarization requires --release mode"
+		exit 1
+	fi
+
+	if [[ "$SIGN_IDENTITY" != "Developer ID"* ]]; then
+		echo "  ❌ Notarization requires Developer ID certificate"
+		echo "     Current identity: $SIGN_IDENTITY"
+		exit 1
+	fi
+
+	# Check for notarization credentials
+	if ! xcrun notarytool history --keychain-profile "notarytool" >/dev/null 2>&1; then
+		echo "  ❌ Notarization credentials not configured"
+		echo ""
+		echo "  Setup instructions:"
+		echo "    xcrun notarytool store-credentials \"notarytool\" \\"
+		echo "      --apple-id \"your-apple-id@example.com\" \\"
+		echo "      --team-id \"YOUR_TEAM_ID\" \\"
+		echo "      --password \"app-specific-password\""
+		echo ""
+		echo "  Get app-specific password: https://appleid.apple.com/account/manage"
+		exit 1
+	fi
+
+	# Create a ZIP for notarization (faster upload than DMG)
+	echo "  Creating archive for notarization..."
+	NOTARIZE_ZIP="/tmp/$APP_NAME-notarize.zip"
+	ditto -c -k --keepParent "$APP_DIR" "$NOTARIZE_ZIP"
+
+	# Submit for notarization
+	echo "  Submitting to Apple (this may take 1-5 minutes)..."
+	NOTARIZE_OUTPUT=$(xcrun notarytool submit "$NOTARIZE_ZIP" \
+		--keychain-profile "notarytool" \
+		--wait 2>&1)
+
+	NOTARIZE_STATUS=$(echo "$NOTARIZE_OUTPUT" | grep "status:" | awk '{print $2}')
+
+	if [ "$NOTARIZE_STATUS" = "Accepted" ]; then
+		echo "  ✓ Notarization successful!"
+
+		# Staple the notarization ticket to the app
+		echo "  Stapling ticket to app..."
+		xcrun stapler staple "$APP_DIR"
+		echo "  ✓ App is notarized and stapled"
+		echo "  ℹ️  Users can verify with: spctl -a -vv ~/Applications/$APP_NAME.app"
+	else
+		echo "  ❌ Notarization failed!"
+		echo ""
+		echo "Full output:"
+		echo "$NOTARIZE_OUTPUT"
+
+		# Try to get submission ID for logs
+		SUBMISSION_ID=$(echo "$NOTARIZE_OUTPUT" | grep "id:" | head -1 | awk '{print $2}')
+		if [ -n "$SUBMISSION_ID" ]; then
+			echo ""
+			echo "Get detailed logs with:"
+			echo "  xcrun notarytool log $SUBMISSION_ID --keychain-profile \"notarytool\""
+		fi
+
+		rm -f "$NOTARIZE_ZIP"
+		exit 1
+	fi
+
+	# Clean up
+	rm -f "$NOTARIZE_ZIP"
 fi
 
 # Update bundle folder timestamp so Finder shows correct modification time
