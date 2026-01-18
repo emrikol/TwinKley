@@ -2,6 +2,9 @@ import AppKit
 import CoreGraphics
 import IOKit.ps
 import TwinKleyCore
+#if !APP_STORE
+import Sparkle
+#endif
 
 // MARK: - Debug Mode
 
@@ -408,10 +411,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 	private let settingsManager = SettingsManager()
 
+	#if !APP_STORE
+	private var updaterController: SPUStandardUpdaterController!
+	#endif
+
 	// Debouncer for keypress sync - coalesces rapid key presses into fewer syncs
 	private let keypressSyncDebouncer = Debouncer(delay: 0.3)
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
+		#if !APP_STORE
+		// Initialize Sparkle updater
+		updaterController = SPUStandardUpdaterController(
+			startingUpdater: true,
+			updaterDelegate: nil,
+			userDriverDelegate: nil
+		)
+		#endif
+
 		setupStatusItem()
 		checkAccessibilityPermission()
 		setupBrightnessMonitor()
@@ -468,6 +484,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		let aboutItem = NSMenuItem(title: "About \(AppInfo.shortName)", action: #selector(showAbout), keyEquivalent: "")
 		aboutItem.target = self
 		menu.addItem(aboutItem)
+
+		#if !APP_STORE
+		let updateItem = NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdates), keyEquivalent: "")
+		updateItem.target = self
+		menu.addItem(updateItem)
+		#endif
 
 		menu.addItem(NSMenuItem.separator())
 
@@ -771,6 +793,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		alert.addButton(withTitle: "OK")
 		alert.runModal()
 	}
+
+	#if !APP_STORE
+	@objc
+	private func checkForUpdates() {
+		updaterController.updater.checkForUpdates()
+	}
+	#endif
 
 	@objc
 	private func quit() {

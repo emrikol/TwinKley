@@ -29,6 +29,9 @@ xcuserdata/
 *.log
 *.tmp
 
+# Sparkle signing keys (NEVER commit these!)
+sparkle_private_key.txt
+
 # Icon generation artifacts
 icon_sources/
 *.iconset/

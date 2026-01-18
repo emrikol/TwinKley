@@ -7,6 +7,9 @@ let package = Package(
     products: [
         .executable(name: "TwinKley", targets: ["TwinKley"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0")
+    ],
     targets: [
         // Core library with testable code
         .target(
@@ -16,7 +19,10 @@ let package = Package(
         // Main executable
         .executableTarget(
             name: "TwinKley",
-            dependencies: ["TwinKleyCore"],
+            dependencies: [
+                "TwinKleyCore",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             path: "Sources/App"
         ),
         // Unit tests

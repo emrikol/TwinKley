@@ -99,6 +99,13 @@ APP_NAME="TwinKley"
 APP_DIR="$HOME/Applications/$APP_NAME.app"
 BUNDLE_ID="com.local.$APP_NAME"
 
+# Extract version from Settings.swift (single source of truth)
+VERSION=$(grep 'static let version = "' Sources/Core/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
+if [ -z "$VERSION" ]; then
+	echo "❌ Failed to extract version from Settings.swift"
+	exit 1
+fi
+
 if [ "$SKIP_CHECKS" = false ]; then
 	# Step 1: Check formatting
 	echo ""
@@ -352,9 +359,9 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
     <key>CFBundleDisplayName</key>
     <string>☀️ TwinK[l]ey ⌨️</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>$VERSION</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>$VERSION</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -367,6 +374,12 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
     <true/>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
+    <key>SUFeedURL</key>
+    <string>https://github.com/emrikol/TwinKley/releases/download/latest/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>RrIa9Qh/+LN89ANE5QLzxKzya+RW9RQDTkKbS0wRWkI=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <false/>
 </dict>
 </plist>
 EOF
