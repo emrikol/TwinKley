@@ -8,6 +8,13 @@ Project conventions and context for AI assistants.
 
 **These principles guide EVERY design decision. They are non-negotiable.**
 
+**Priority ordering: Energy > Memory > Binary Size**
+
+When trade-offs arise, optimize in this order:
+1. Energy efficiency (CPU wake-ups, polling) - most important
+2. Memory usage (resident footprint, caches)
+3. Binary size (code footprint, dependencies) - least important
+
 ### 1. Energy & CPU Efficiency First
 - **Event-driven architecture**: Wake only when needed (notifications, callbacks, event taps)
 - **Zero polling** where events exist (brightness keys generate events, use them!)
@@ -163,19 +170,27 @@ Documented in NOTES.md - don't re-attempt these:
 
 ```
 Sources/
-  App/main.swift       - Main app, AppDelegate, UI (~625 lines)
-  Core/
-    Settings.swift     - AppInfo, Settings, SettingsManager
-    Debouncer.swift    - Debounce utility for coalescing events
+  App/main.swift       - Main app, AppDelegate (~1100 lines)
+  UI/                  - Dynamic library for windows/dialogs
+    TwinKleyUI.swift   - UI loader and CLI utilities
+    DebugWindow.swift  - Debug window
+    PreferencesWindow.swift - Settings UI
+    AboutWindow.swift  - About dialog
+Packages/
+  TwinKleyCore/        - Local package (dynamic library, shared)
+    Sources/TwinKleyCore/
+      Settings.swift   - AppInfo, Settings, SettingsManager
+      Debouncer.swift  - Debounce utility for coalescing events
 Tests/
   AppInfoTests.swift   - App metadata tests
-  SettingsTests.swift  - Settings persistence tests (16 tests)
+  SettingsTests.swift  - Settings persistence tests (22 tests)
   DebouncerTests.swift - Debouncer unit tests (8 tests)
 ```
 
-### Core vs App Split
-- **Core**: Pure Swift, no system dependencies, fully testable
-- **App**: System integration, UI, requires hardware/permissions
+### Core vs App vs UI Split
+- **Core** (TwinKleyCore): Pure Swift, no system dependencies, fully testable, shared dynamic library
+- **App**: Main binary, system integration, minimal footprint
+- **UI** (TwinKleyUI): Windows, dialogs, CLI utilities, loaded on-demand
 
 This split enables **98.18% total line coverage** on the Core module (v1.8).
 
@@ -186,7 +201,7 @@ This split enables **98.18% total line coverage** on the Core module (v1.8).
 ### Coverage Goals
 - **Core module**: 98.18% line coverage (v1.8)
 - **App module**: Not tested (requires hardware/permissions)
-- **Total**: 52 tests across 3 test suites
+- **Total**: 53 tests across 3 test suites
 
 High coverage achieved through:
 - Protocol-based dependency injection for brightness services
@@ -210,7 +225,7 @@ These require real hardware or permissions:
 
 ### Running Tests
 ```bash
-swift test                    # All 52 tests
+swift test                    # All 53 tests
 swift test --filter Debouncer # Specific suite
 ./audit.sh                    # Full audit including tests
 swift test --enable-code-coverage  # With coverage report
@@ -248,7 +263,7 @@ AppleScript CAN simulate brightness keys (contrary to some documentation):
 
 ```bash
 # Brightness DOWN
-osascript -e 'tell application "System Events" to key code 113'
+osascript -e 'tell application "System Events" to key code 145'
 
 # Brightness UP
 osascript -e 'tell application "System Events" to key code 144'

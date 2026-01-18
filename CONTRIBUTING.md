@@ -332,7 +332,7 @@ These are loaded dynamically at runtime using `dlopen`/`dlsym`.
 
 ### Core vs App Split
 
-- **Core** (`Sources/Core/`): Testable business logic, no UI or system dependencies
+- **Core** (`Packages/TwinKleyCore/`): Testable business logic, no UI or system dependencies (local package)
 - **App** (`Sources/App/`): Main executable with UI, system framework integration
 
 This split allows unit testing the settings logic without requiring hardware.
@@ -546,7 +546,7 @@ The corresponding public key is already in `build.sh` Info.plist generation:
 
 ### Creating a Release
 
-1. Update version in `Sources/Core/Settings.swift`:
+1. Update version in `Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift`:
    ```swift
    public static let version = "1.0.0-beta1"
    ```
@@ -564,7 +564,7 @@ The corresponding public key is already in `build.sh` Info.plist generation:
 
 3. Commit changes:
    ```bash
-   git add Sources/Core/Settings.swift CHANGELOG.md
+   git add Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift CHANGELOG.md
    git commit -m "chore: bump version to 1.0.0-beta1"
    ```
 

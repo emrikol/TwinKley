@@ -5,9 +5,9 @@ A lightweight macOS menu bar app that synchronizes your keyboard backlight brigh
 ## Features
 
 - **Live Sync**: Instantly syncs when you change brightness (keys, Control Center slider, etc.)
-- **Timed Sync**: Background check every 10 seconds as a safety net (enabled by default)
+- **Timed Sync**: Optional background check every 10 seconds as a safety net (disabled by default)
 - **Battery Aware**: Option to pause background checking when on battery
-- **Minimal Resource Usage**: ~12MB memory, runs silently in the menu bar
+- **Minimal Resource Usage**: ~11MB memory, zero CPU when idle, runs silently in the menu bar
 - **Persistent Settings**: Saves preferences to `~/.twinkley.json`
 - **Auto-Updates**: Built-in update system (Sparkle 2) - stay current effortlessly
 - **Privacy First**: Zero data collection - everything runs locally ([Privacy Policy](PRIVACY.md))
@@ -33,8 +33,8 @@ This is instant - no waiting, no polling, no battery drain.
 Some apps or tools might change brightness without triggering macOS notifications. The timed sync checks every 10 seconds as a fallback to catch these rare cases. If Live Sync is working perfectly for you, you can disable this in the menu.
 
 **Which should you use?**
-- **Try Live Sync only first** - It works for most users and uses less battery
-- **Enable Timed Sync if you notice missed syncs** - Like when using third-party brightness tools
+- **Live Sync only (default)** - Works for most users with zero battery impact
+- **Enable Timed Sync** only if you notice missed syncs when using third-party brightness tools
 
 ## Requirements
 
@@ -221,6 +221,37 @@ When you drag the Control Center slider from 0% to 100%, macOS fires multiple `N
 See `NOTES.md` for full debug logs and detailed investigation.
 
 </details>
+
+## Energy Efficiency
+
+TwinKley is designed to be invisible to your battery. We benchmarked both sync modes over 5 minutes and extrapolated to an 8-hour workday:
+
+| Metric | Live Sync Only | Timed Sync (10s) |
+|--------|---------------|------------------|
+| **CPU wake-ups (8 hrs)** | **0** | 2,880 |
+| **CPU time (8 hrs)** | **~1 second** | ~3 seconds |
+| **Memory** | 10.7 MB | 10.8 MB |
+
+### What This Means
+
+**Live Sync** is truly event-driven. The app sleeps until macOS sends a brightness change notification, then wakes briefly to sync and immediately sleeps again. During our 5-minute benchmark, Live Sync caused **zero** CPU wake-ups.
+
+**Timed Sync** polls every 10 seconds as a fallback. Over an 8-hour workday, that's 2,880 timer fires—each one briefly waking the CPU. While each wake-up is tiny (~0.001s), they add up and prevent the CPU from entering deeper sleep states.
+
+### Recommendation
+
+- **Use Live Sync only** (default) for best battery life
+- **Enable Timed Sync** only if you use third-party tools that change brightness without triggering system events
+
+### Run Your Own Benchmark
+
+```bash
+# 5 minutes per mode (10 min total)
+./scripts/benchmark-sync-modes.sh
+
+# Custom duration (e.g., 60 seconds per mode)
+./scripts/benchmark-sync-modes.sh 60
+```
 
 ## Technical Notes
 
