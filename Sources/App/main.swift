@@ -415,6 +415,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private var updaterController: SPUStandardUpdaterController!
 	#endif
 
+	private var preferencesWindow: PreferencesWindowController?
+
 	// Debouncer for keypress sync - coalesces rapid key presses into fewer syncs
 	private let keypressSyncDebouncer = Debouncer(delay: 0.3)
 
@@ -523,6 +525,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		menu.addItem(syncItem)
 
 		menu.addItem(NSMenuItem.separator())
+
+		let prefsItem = NSMenuItem(
+			title: "Preferences...",
+			action: #selector(showPreferences),
+			keyEquivalent: ","
+		)
+		prefsItem.target = self
+		menu.addItem(prefsItem)
 
 		let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
 		quitItem.target = self
@@ -682,6 +692,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		// Display reconfiguration callback (catches some brightness changes)
 		registerDisplayCallback()
 
+		// Settings changed notification (from Preferences window)
+		NotificationCenter.default.addObserver(
+			self,
+			selector: #selector(onSettingsChanged),
+			name: .settingsChanged,
+			object: nil
+		)
+
 		// Note: com.apple.BezelServices.brightness* distributed notifications don't work on modern macOS
 		// Brightness sync relies on: 1) keypress detection, 2) display reconfiguration, 3) timer fallback
 	}
@@ -692,6 +710,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 			guard let self else { return }
 			syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
 		}
+	}
+
+	@objc
+	private func onSettingsChanged() {
+		// Update menu item states
+		keypressSyncMenuItem.state = settingsManager.settings.liveSyncEnabled ? .on : .off
+		timedSyncMenuItem.state = settingsManager.settings.timedSyncEnabled ? .on : .off
+
+		// Update timer state (start/stop/restart as needed)
+		updateTimerState()
+
+		// Sync with new gamma value
+		syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
 	}
 
 	@objc
@@ -792,6 +823,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		alert.alertStyle = .informational
 		alert.addButton(withTitle: "OK")
 		alert.runModal()
+	}
+
+	@objc
+	private func showPreferences() {
+		if preferencesWindow == nil {
+			#if !APP_STORE
+			preferencesWindow = PreferencesWindowController(
+				settingsManager: settingsManager,
+				updaterController: updaterController
+			)
+			#else
+			preferencesWindow = PreferencesWindowController(settingsManager: settingsManager)
+			#endif
+		}
+		preferencesWindow?.showWindow(nil)
+		NSApp.activate(ignoringOtherApps: true)
 	}
 
 	#if !APP_STORE
