@@ -1,0 +1,43 @@
+# Changelog
+
+All notable changes to TwinKley will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.0.0-beta1] - TBD
+
+### Added
+- Auto-update system using Sparkle 2
+- Privacy policy (zero data collection)
+- First-run welcome dialog
+- Full-featured Preferences window with three tabs:
+  - Sync settings (Live/Timed sync controls)
+  - Advanced (Gamma correction slider)
+  - Updates & Privacy (Auto-update preferences)
+- Help menu with documentation links
+- Runtime debug toggle via About dialog icon double-click
+- GitHub Actions release automation
+- Issue templates for bugs and feature requests
+
+### Fixed
+- Event tap disabled bug after sleep/wake cycles
+- Added keyCode 7 for brightness detection after wake/power state changes
+
+### Changed
+- Modernized build system with notarization support
+- Version management now single-source from Settings.swift
+
+## [Previous Development Versions]
+
+Prior to v1.0.0-beta1, TwinKley was in active development without formal releases.
+
+Key features implemented:
+- Live brightness sync via event tap
+- Timed sync as fallback
+- Battery-aware power management
+- Gamma correction support
+- Menu bar interface
+- Settings persistence

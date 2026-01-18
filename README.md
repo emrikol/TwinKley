@@ -9,6 +9,8 @@ A lightweight macOS menu bar app that synchronizes your keyboard backlight brigh
 - **Battery Aware**: Option to pause background checking when on battery
 - **Minimal Resource Usage**: ~12MB memory, runs silently in the menu bar
 - **Persistent Settings**: Saves preferences to `~/.twinkley.json`
+- **Auto-Updates**: Built-in update system (Sparkle 2) - stay current effortlessly
+- **Privacy First**: Zero data collection - everything runs locally ([Privacy Policy](PRIVACY.md))
 - **Auto-start**: Optional LaunchAgent for login startup
 
 ### How It Works
@@ -69,11 +71,14 @@ Or double-click the app in Finder.
 
 ### Menu Bar Options
 
-- **About**: Shows app info
+- **About**: Shows app info (double-click icon to toggle debug mode)
+- **Check for Updates**: Manually check for new versions
 - **Status**: Shows if the app is active
 - **Live Sync**: Toggle instant sync (responds to brightness changes immediately)
 - **Timed Sync**: Toggle background check every 10 seconds
 - **Sync Now**: Manually sync brightness right now
+- **Preferences**: Open settings window (⌘,)
+- **Help**: Open documentation
 - **Quit**: Exit the app
 
 ### Auto-start on Login
@@ -222,6 +227,20 @@ See `NOTES.md` for full debug logs and detailed investigation.
 - M4 MacBooks use `keyCode=6` for display brightness keys (different from older Macs which use codes 2/3)
 - The app requires Accessibility permissions for the event tap to function
 - See `NOTES.md` for detailed research notes on the implementation
+
+## Privacy
+
+**TwinKley collects zero user data.** Everything runs locally on your Mac.
+
+- ❌ No analytics or telemetry
+- ❌ No crash reports
+- ❌ No network connections (except update checks)
+- ✅ Settings stored locally in `~/.twinkley.json`
+- ✅ Optional debug logs in `~/.twinkley-debug.log`
+
+Auto-updates use Sparkle framework and only transmit: app version, macOS version, and CPU architecture. No personally identifiable information.
+
+**Read our full [Privacy Policy](PRIVACY.md)** for complete details.
 
 ## License
 

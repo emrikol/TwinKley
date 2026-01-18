@@ -4,7 +4,7 @@ import Foundation
 
 /// App version information
 public enum AppInfo {
-	public static let version = "1.0.0"
+	public static let version = "1.0.0-beta1"
 	public static let name = "☀️ TwinK[l]ey ⌨️"
 	public static let shortName = "TwinK[l]ey"
 	public static let identifier = "com.local.TwinKley"
