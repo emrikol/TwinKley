@@ -17,13 +17,15 @@ Project conventions and context for AI assistants.
 
 **Rule**: Before adding any timer, polling loop, or background work, prove no event-driven alternative exists.
 
-### 2. Memory Efficiency
-- **Minimal footprint**: Target ~11 MB resident memory
-- **Dynamic loading**: Use `dlopen()` for optional frameworks (like Sparkle)
+### 2. Memory & Binary Size Efficiency
+- **Minimal footprint**: Target ~11 MB resident memory, ~150 KB binary
+- **Small binary**: Strip symbols, avoid bloat, question every dependency
+- **Lazy loading**: Load frameworks only when actually used (like Sparkle)
+- **Dynamic loading**: Use `dlopen()` for truly optional components
 - **No memory leaks**: Use `passUnretained` for callbacks we don't own
 - **Clean up resources**: Invalidate taps, remove observers, stop timers on quit
 
-**Rule**: Every MB of memory matters. Question every framework, every cache, every retained object.
+**Rule**: Every MB of memory and every KB of binary size matters. Question every framework, every cache, every retained object, every dependency.
 
 ### 3. Privacy First
 - **Zero data collection**: No analytics, telemetry, or crash reports
@@ -91,11 +93,14 @@ The app should be invisible until needed.
 | Target | Value |
 |--------|-------|
 | Binary | ~150 KB |
-| Memory | ~11 MB |
+| Memory | ~11 MB (base), ~14 MB (when Sparkle loaded) |
 | Idle CPU | 0% |
-| Bundle | ~250 KB |
+| Bundle | ~3.1 MB (includes Sparkle framework ~2.8 MB) |
 
-**Note:** Binary size includes ~17KB overhead from code signing (required for Accessibility permissions). Stripped unsigned binary is ~137KB.
+**Notes:**
+- Binary size includes ~17KB overhead from code signing (required for Accessibility permissions)
+- Sparkle framework adds ~2.8 MB to bundle but loads lazily (only when checking for updates)
+- Memory usage increases by ~3 MB only when user checks for updates or opens Preferences
 
 ### 4. No Over-Engineering
 Keep it simple. This is a single-purpose utility.
