@@ -431,10 +431,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		#endif
 
 		setupStatusItem()
+		checkFirstLaunch()
 		checkAccessibilityPermission()
 		setupBrightnessMonitor()
 		setupObservers()
 		syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+	}
+
+	private func checkFirstLaunch() {
+		if !settingsManager.settings.hasLaunchedBefore {
+			settingsManager.update { settings in
+				settings.hasLaunchedBefore = true
+			}
+			showWelcomeDialog()
+		}
+	}
+
+	private func showWelcomeDialog() {
+		let alert = NSAlert()
+		alert.messageText = "Welcome to \(AppInfo.shortName)!"
+		alert.informativeText = """
+		TwinKley automatically syncs your keyboard backlight to match your display brightness.
+
+		🔒 Privacy First: Zero data collection, everything runs locally
+		⚡️ Live Sync: Instant response to brightness changes
+		🔋 Battery Smart: Optional power-saving modes
+
+		To get started:
+		1. Grant Accessibility permission (required)
+		2. Adjust brightness - your keyboard will follow!
+
+		Settings are in the menu bar icon.
+		"""
+		alert.alertStyle = .informational
+		alert.icon = NSApp.applicationIconImage
+		alert.addButton(withTitle: "Grant Permission")
+		alert.addButton(withTitle: "Later")
+
+		let response = alert.runModal()
+		if response == .alertFirstButtonReturn {
+			// User clicked "Grant Permission" - will show accessibility prompt next
+			// The checkAccessibilityPermission() call will handle it
+		}
 	}
 
 	private func checkAccessibilityPermission() {
@@ -533,6 +571,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		)
 		prefsItem.target = self
 		menu.addItem(prefsItem)
+
+		let helpItem = NSMenuItem(
+			title: "Help",
+			action: #selector(openHelp),
+			keyEquivalent: "?"
+		)
+		helpItem.target = self
+		menu.addItem(helpItem)
+
+		menu.addItem(NSMenuItem.separator())
 
 		let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
 		quitItem.target = self
@@ -839,6 +887,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		}
 		preferencesWindow?.showWindow(nil)
 		NSApp.activate(ignoringOtherApps: true)
+	}
+
+	@objc
+	private func openHelp() {
+		if let url = URL(string: "\(AppInfo.githubURL)#readme") {
+			NSWorkspace.shared.open(url)
+		}
 	}
 
 	#if !APP_STORE

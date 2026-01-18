@@ -21,6 +21,7 @@ public struct Settings: Codable, Equatable {
 	public var pauseTimedSyncOnBattery: Bool // Pause polling when on battery
 	public var pauseTimedSyncOnLowBattery: Bool // Pause polling when battery < 20%
 	public var brightnessGamma: Double // Gamma curve for perceptual brightness matching
+	public var hasLaunchedBefore: Bool // First-run tracking
 
 	public static let intervalMin = 100
 	public static let intervalMax = 60_000 // Up to 1 minute
@@ -36,7 +37,8 @@ public struct Settings: Codable, Equatable {
 		timedSyncIntervalMs: intervalDefault,
 		pauseTimedSyncOnBattery: false,
 		pauseTimedSyncOnLowBattery: true,
-		brightnessGamma: gammaDefault
+		brightnessGamma: gammaDefault,
+		hasLaunchedBefore: false
 	)
 
 	public init(
@@ -45,7 +47,8 @@ public struct Settings: Codable, Equatable {
 		timedSyncIntervalMs: Int = intervalDefault,
 		pauseTimedSyncOnBattery: Bool = false,
 		pauseTimedSyncOnLowBattery: Bool = true,
-		brightnessGamma: Double = gammaDefault
+		brightnessGamma: Double = gammaDefault,
+		hasLaunchedBefore: Bool = false
 	) {
 		self.liveSyncEnabled = liveSyncEnabled
 		self.timedSyncEnabled = timedSyncEnabled
@@ -53,6 +56,7 @@ public struct Settings: Codable, Equatable {
 		self.pauseTimedSyncOnBattery = pauseTimedSyncOnBattery
 		self.pauseTimedSyncOnLowBattery = pauseTimedSyncOnLowBattery
 		self.brightnessGamma = Self.clampGamma(brightnessGamma)
+		self.hasLaunchedBefore = hasLaunchedBefore
 	}
 
 	// MARK: - Backward Compatibility
@@ -65,6 +69,7 @@ public struct Settings: Codable, Equatable {
 		case pauseTimedSyncOnBattery
 		case pauseTimedSyncOnLowBattery
 		case brightnessGamma
+		case hasLaunchedBefore
 	}
 
 	public init(from decoder: Decoder) throws {
@@ -84,6 +89,8 @@ public struct Settings: Codable, Equatable {
 		pauseTimedSyncOnBattery = try container.decode(Bool.self, forKey: .pauseTimedSyncOnBattery)
 		pauseTimedSyncOnLowBattery = try container.decode(Bool.self, forKey: .pauseTimedSyncOnLowBattery)
 		brightnessGamma = Self.clampGamma(try container.decode(Double.self, forKey: .brightnessGamma))
+		// Backward compatibility: default to false if key doesn't exist
+		hasLaunchedBefore = (try? container.decode(Bool.self, forKey: .hasLaunchedBefore)) ?? false
 	}
 
 	public func encode(to encoder: Encoder) throws {
@@ -95,6 +102,7 @@ public struct Settings: Codable, Equatable {
 		try container.encode(pauseTimedSyncOnBattery, forKey: .pauseTimedSyncOnBattery)
 		try container.encode(pauseTimedSyncOnLowBattery, forKey: .pauseTimedSyncOnLowBattery)
 		try container.encode(brightnessGamma, forKey: .brightnessGamma)
+		try container.encode(hasLaunchedBefore, forKey: .hasLaunchedBefore)
 	}
 
 	/// Clamp interval to valid range

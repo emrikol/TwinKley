@@ -179,12 +179,19 @@ echo ""
 echo "▶ Creating app bundle..."
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
+mkdir -p "$APP_DIR/Contents/Frameworks"
 
 # Step 4: Copy and strip binary (removes debug symbols, ~30% size reduction)
 strip -S -x "$BUILT_BINARY" -o "$APP_DIR/Contents/MacOS/$APP_NAME"
 
 BINARY_SIZE=$(ls -lh "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '{print $5}')
 echo "  Binary size: $BINARY_SIZE (stripped)"
+
+# Step 6a: Copy frameworks (Sparkle)
+if [ -d ".build/release/Sparkle.framework" ]; then
+	echo "  Copying Sparkle framework..."
+	cp -R ".build/release/Sparkle.framework" "$APP_DIR/Contents/Frameworks/"
+fi
 
 # Signing happens after all resources are added (see Step 10b below)
 
