@@ -459,6 +459,172 @@ Even with stable signing, you need to grant Accessibility permission once:
 
 After this, rebuilds will retain the permission.
 
+---
+
+## GitHub Actions & Automated Releases
+
+TwinKley uses GitHub Actions to automate releases with code signing, notarization, and Sparkle appcast generation.
+
+### How It Works
+
+When you push a version tag (e.g., `v1.0.0-beta1`), GitHub Actions automatically:
+1. Runs tests
+2. Builds the app with Developer ID signing
+3. Notarizes the app with Apple
+4. Creates a distribution ZIP
+5. Signs the update with Sparkle EdDSA key
+6. Generates `appcast.xml` for Sparkle auto-updates
+7. Creates a GitHub Release with assets
+8. Extracts release notes from CHANGELOG.md
+
+### Required GitHub Secrets
+
+Navigate to **Settings → Secrets and variables → Actions** in your GitHub repository and add these secrets:
+
+#### Code Signing Secrets
+
+**`SIGNING_CERTIFICATE`**
+Base64-encoded Developer ID Application certificate (.p12 file).
+
+To create:
+```bash
+# Export certificate from Keychain Access
+# File → Export Items → Select "Developer ID Application" cert
+# Export as .p12 with password
+
+# Encode to base64
+base64 -i YourCert.p12 | pbcopy
+# Paste into GitHub secret
+```
+
+**`SIGNING_PASSWORD`**
+Password you set when exporting the .p12 file.
+
+**`KEYCHAIN_PASSWORD`**
+Any random password (used for temporary keychain during CI).
+Example: `$(openssl rand -base64 32)`
+
+#### Notarization Secrets
+
+**`NOTARIZATION_APPLE_ID`**
+Your Apple ID email address (same as App Store Connect).
+
+**`NOTARIZATION_TEAM_ID`**
+Your 10-character Apple Developer Team ID.
+Find it at: https://developer.apple.com/account → Membership → Team ID
+
+**`NOTARIZATION_PASSWORD`**
+App-specific password for notarization (NOT your Apple ID password).
+
+To create:
+1. Go to https://appleid.apple.com/account/manage
+2. Sign in with your Apple ID
+3. Under "Security" → "App-Specific Passwords" → Generate
+4. Name it "TwinKley Notarization" and copy the password
+
+#### Sparkle Signing Secret
+
+**`SPARKLE_PRIVATE_KEY`**
+EdDSA private key for signing Sparkle updates.
+
+This was generated during Sprint 2 and saved to `sparkle_private_key.txt` (gitignored).
+
+To add to GitHub:
+```bash
+# Copy the private key
+cat sparkle_private_key.txt | pbcopy
+# Paste into GitHub secret
+```
+
+**⚠️ IMPORTANT**: Keep `sparkle_private_key.txt` backed up securely! If lost, you'll need to regenerate keys and all users must reinstall.
+
+The corresponding public key is already in `build.sh` Info.plist generation:
+```xml
+<key>SUPublicEDKey</key>
+<string>RrIa9Qh/+LN89ANE5QLzxKzya+RW9RQDTkKbS0wRWkI=</string>
+```
+
+### Creating a Release
+
+1. Update version in `Sources/Core/Settings.swift`:
+   ```swift
+   public static let version = "1.0.0-beta1"
+   ```
+
+2. Update `CHANGELOG.md` with release notes:
+   ```markdown
+   ## [1.0.0-beta1] - 2026-01-17
+
+   ### Added
+   - New feature description
+
+   ### Fixed
+   - Bug fix description
+   ```
+
+3. Commit changes:
+   ```bash
+   git add Sources/Core/Settings.swift CHANGELOG.md
+   git commit -m "chore: bump version to 1.0.0-beta1"
+   ```
+
+4. Create and push tag:
+   ```bash
+   git tag v1.0.0-beta1
+   git push origin main
+   git push origin v1.0.0-beta1
+   ```
+
+5. GitHub Actions will automatically build and create the release.
+
+6. Monitor progress at: https://github.com/emrikol/TwinKley/actions
+
+### Workflow File
+
+The workflow is defined in `.github/workflows/release.yml`.
+
+Key steps:
+- **Trigger**: Tags matching `v*.*.*`
+- **Runner**: macOS 14 (for latest Swift and Xcode)
+- **Dependencies**: swiftlint, swiftformat, pngquant
+- **Signing**: Temporary keychain with Developer ID cert
+- **Notarization**: `xcrun notarytool` with stored credentials
+- **Tests**: `swift test` (must pass)
+- **Build**: `./build.sh --release --notarize`
+- **Sparkle**: `sign_update` and `generate_appcast`
+- **Release**: Automatic GitHub Release with ZIP + appcast.xml
+
+### Pre-release Detection
+
+Tags containing `beta`, `alpha`, or `rc` are automatically marked as pre-releases in GitHub.
+
+Examples:
+- `v1.0.0-beta1` → Pre-release ✓
+- `v1.0.0-rc1` → Pre-release ✓
+- `v1.0.0` → Stable release
+
+### Troubleshooting Releases
+
+**Build fails with "Certificate not found":**
+- Check `SIGNING_CERTIFICATE` is base64-encoded correctly
+- Verify `SIGNING_PASSWORD` matches the .p12 export password
+- Ensure the certificate is "Developer ID Application" (not "Mac Development")
+
+**Notarization fails:**
+- Verify `NOTARIZATION_APPLE_ID` is correct
+- Check `NOTARIZATION_TEAM_ID` is your 10-character Team ID
+- Confirm `NOTARIZATION_PASSWORD` is an app-specific password (not Apple ID password)
+- Ensure your Apple Developer account is in good standing
+
+**Sparkle signature mismatch:**
+- Verify `SPARKLE_PRIVATE_KEY` matches the public key in build.sh
+- Ensure the private key was copied correctly (no extra whitespace)
+- If you regenerated keys, update the public key in build.sh
+
+**Release notes empty:**
+- Ensure CHANGELOG.md has a section for the version: `## [1.0.0] - Date`
+- Check formatting matches Keep a Changelog standard
+
 ## Troubleshooting
 
 ### Build Errors

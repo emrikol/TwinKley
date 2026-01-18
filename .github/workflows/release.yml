@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install swiftlint swiftformat pngquant
+
+      - name: Setup signing
+        env:
+          SIGNING_CERTIFICATE: ${{ secrets.SIGNING_CERTIFICATE }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          # Import certificate
+          echo "$SIGNING_CERTIFICATE" | base64 --decode > cert.p12
+          security import cert.p12 -k build.keychain -P "$SIGNING_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+      - name: Setup notarization
+        env:
+          NOTARIZATION_APPLE_ID: ${{ secrets.NOTARIZATION_APPLE_ID }}
+          NOTARIZATION_TEAM_ID: ${{ secrets.NOTARIZATION_TEAM_ID }}
+          NOTARIZATION_PASSWORD: ${{ secrets.NOTARIZATION_PASSWORD }}
+        run: |
+          xcrun notarytool store-credentials "notarytool" \
+            --apple-id "$NOTARIZATION_APPLE_ID" \
+            --team-id "$NOTARIZATION_TEAM_ID" \
+            --password "$NOTARIZATION_PASSWORD"
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build and notarize
+        run: ./build.sh --release --notarize
+
+      - name: Create distribution ZIP
+        run: |
+          cd ~/Applications
+          ditto -c -k --keepParent TwinKley.app TwinKley.zip
+          mv TwinKley.zip $GITHUB_WORKSPACE/
+
+      - name: Sign update with Sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Write private key to file
+          echo "$SPARKLE_PRIVATE_KEY" > sparkle_key.txt
+
+          # Sign the update
+          .build/artifacts/sparkle/Sparkle/bin/sign_update TwinKley.zip -f sparkle_key.txt > signature.txt
+
+          # Clean up private key
+          rm -f sparkle_key.txt
+
+          # Display signature for verification
+          cat signature.txt
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Create releases directory for appcast generation
+          mkdir -p releases
+          cp TwinKley.zip releases/
+
+          # Write private key
+          echo "$SPARKLE_PRIVATE_KEY" > sparkle_key.txt
+
+          # Generate appcast
+          .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
+            --download-url-prefix "https://github.com/emrikol/TwinKley/releases/download/${{ steps.version.outputs.tag }}/" \
+            -f sparkle_key.txt \
+            releases/
+
+          # Move appcast to workspace root
+          mv releases/appcast.xml .
+
+          # Clean up
+          rm -f sparkle_key.txt
+          rm -rf releases
+
+      - name: Extract release notes from CHANGELOG
+        id: release_notes
+        run: |
+          # Extract the latest version section from CHANGELOG.md
+          # This gets everything between the first ## [version] and the next ## [version]
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Create release notes file
+          awk "/## \[$VERSION\]/ {flag=1; next} /## \[/ {flag=0} flag" CHANGELOG.md > release_notes.md
+
+          # If release notes are empty, use a default message
+          if [ ! -s release_notes.md ]; then
+            echo "Release $VERSION" > release_notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            TwinKley.zip
+            appcast.xml
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain build.keychain || true
