@@ -17,6 +17,7 @@ disabled_rules:
   - opening_brace            # Conflicts with SwiftFormat's wrapMultilineStatementBraces
 
 opt_in_rules:
+  - missing_docs             # Require documentation for public declarations
   - empty_count              # Prefer isEmpty over count == 0
   - empty_string             # Prefer isEmpty over == ""
   # force_unwrapping - disabled: unavoidable with private frameworks
@@ -95,6 +96,13 @@ identifier_name:
 type_name:
   min_length: 3
   max_length: 50
+
+missing_docs:
+  excludes_extensions: true       # Don't require docs on protocol conformance extensions
+  excludes_inherited_types: true  # Don't require docs on inherited methods
+  warning:
+    - open
+    - public
 
 # Reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
 reporter: "xcode"
