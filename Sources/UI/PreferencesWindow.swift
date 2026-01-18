@@ -1,14 +1,10 @@
 import AppKit
 import TwinKleyCore
-#if !APP_STORE
-import Sparkle
-#endif
 
-class PreferencesWindowController: NSWindowController {
-	private let settingsManager: SettingsManager
-	#if !APP_STORE
-	private let updaterController: SPUStandardUpdaterController?
-	#endif
+/// Preferences window controller - dynamically loaded UI component
+@objc public class PreferencesWindowController: NSWindowController, PreferencesWindowProtocol {
+	// Context with all dependencies (protocol-based)
+	private var context: UIContext?
 
 	// UI Controls
 	private var liveSyncCheckbox: NSButton!
@@ -19,15 +15,14 @@ class PreferencesWindowController: NSWindowController {
 	private var pauseOnLowBatteryCheckbox: NSButton!
 	private var gammaSlider: NSSlider!
 	private var gammaLabel: NSTextField!
-	#if !APP_STORE
 	private var autoCheckUpdatesCheckbox: NSButton!
-	#endif
+	private var tabView: NSTabView!
 
-	#if !APP_STORE
-	init(settingsManager: SettingsManager, updaterController: SPUStandardUpdaterController?) {
-		self.settingsManager = settingsManager
-		self.updaterController = updaterController
+	public override init(window: NSWindow?) {
+		super.init(window: window)
+	}
 
+	@objc public required convenience init() {
 		let window = NSWindow(
 			contentRect: NSRect(x: 0, y: 0, width: 520, height: 480),
 			styleMask: [.titled, .closable],
@@ -37,32 +32,37 @@ class PreferencesWindowController: NSWindowController {
 		window.title = "Preferences"
 		window.center()
 
-		super.init(window: window)
-
+		self.init(window: window)
 		setupUI()
 	}
-	#else
-	init(settingsManager: SettingsManager) {
-		self.settingsManager = settingsManager
 
-		let window = NSWindow(
-			contentRect: NSRect(x: 0, y: 0, width: 520, height: 480),
-			styleMask: [.titled, .closable],
-			backing: .buffered,
-			defer: false
-		)
-		window.title = "Preferences"
-		window.center()
-
-		super.init(window: window)
-
-		setupUI()
+	public required init?(coder: NSCoder) {
+		super.init(coder: coder)
 	}
-	#endif
 
-	@available(*, unavailable)
-	required init?(coder: NSCoder) {
-		fatalError("init(coder:) has not been implemented")
+	/// Set the context with all dependencies
+	@objc public func setContext(_ context: Any) {
+		guard let ctx = context as? UIContext else { return }
+		self.context = ctx
+		// Update UI to reflect current settings
+		if let settings = ctx.settingsManager?.settings {
+			liveSyncCheckbox?.state = settings.liveSyncEnabled ? .on : .off
+			timedSyncCheckbox?.state = settings.timedSyncEnabled ? .on : .off
+			intervalSlider?.doubleValue = Double(settings.timedSyncIntervalMs)
+			intervalLabel?.stringValue = formatInterval(settings.timedSyncIntervalMs)
+			pauseOnBatteryCheckbox?.state = settings.pauseTimedSyncOnBattery ? .on : .off
+			pauseOnLowBatteryCheckbox?.state = settings.pauseTimedSyncOnLowBattery ? .on : .off
+			gammaSlider?.doubleValue = settings.brightnessGamma
+			gammaLabel?.stringValue = String(format: "%.1f", settings.brightnessGamma)
+		}
+		// Update auto-update checkbox
+		autoCheckUpdatesCheckbox?.state = (ctx.getAutoUpdateEnabled?() ?? false) ? .on : .off
+	}
+
+	/// Show the window
+	@objc public func showWindow() {
+		window?.makeKeyAndOrderFront(nil)
+		NSApp.activate(ignoringOtherApps: true)
 	}
 
 	private func setupUI() {
@@ -70,29 +70,41 @@ class PreferencesWindowController: NSWindowController {
 		contentView.autoresizingMask = [.width, .height]
 		window!.contentView = contentView
 
-		// Create tabbed interface
-		let tabView = NSTabView(frame: NSRect(x: 20, y: 20, width: 480, height: 440))
+		// Create segmented control for tab switching
+		let tabLabels = ["Sync", "Advanced", "Updates & Privacy"]
+		let segmentedControl = NSSegmentedControl(labels: tabLabels, trackingMode: .selectOne, target: self, action: #selector(tabChanged(_:)))
+		segmentedControl.segmentStyle = .automatic
+		segmentedControl.selectedSegment = 0
+		segmentedControl.frame = NSRect(x: 20, y: 430, width: 480, height: 24)
+		segmentedControl.autoresizingMask = [.width, .minYMargin]
+		contentView.addSubview(segmentedControl)
+
+		// Create tab view without visible tabs (content only)
+		tabView = NSTabView(frame: NSRect(x: 20, y: 20, width: 480, height: 400))
 		tabView.autoresizingMask = [.width, .height]
+		tabView.tabViewType = .noTabsNoBorder
 
 		// Tab 1: Sync Settings
 		let syncTab = NSTabViewItem(identifier: "sync")
-		syncTab.label = "Sync"
 		syncTab.view = createSyncTab()
 		tabView.addTabViewItem(syncTab)
 
 		// Tab 2: Advanced
 		let advancedTab = NSTabViewItem(identifier: "advanced")
-		advancedTab.label = "Advanced"
 		advancedTab.view = createAdvancedTab()
 		tabView.addTabViewItem(advancedTab)
 
 		// Tab 3: Updates & Privacy
 		let updatesTab = NSTabViewItem(identifier: "updates")
-		updatesTab.label = "Updates & Privacy"
 		updatesTab.view = createUpdatesTab()
 		tabView.addTabViewItem(updatesTab)
 
 		contentView.addSubview(tabView)
+	}
+
+	@objc
+	private func tabChanged(_ sender: NSSegmentedControl) {
+		tabView.selectTabViewItem(at: sender.selectedSegment)
 	}
 
 	private func createSyncTab() -> NSView {
@@ -113,7 +125,6 @@ class PreferencesWindowController: NSWindowController {
 			action: #selector(settingChanged)
 		)
 		liveSyncCheckbox.frame = NSRect(x: 20, y: yPos, width: 440, height: 20)
-		liveSyncCheckbox.state = settingsManager.settings.liveSyncEnabled ? .on : .off
 		view.addSubview(liveSyncCheckbox)
 		yPos -= 30
 
@@ -134,33 +145,28 @@ class PreferencesWindowController: NSWindowController {
 		view.addSubview(timedSyncLabel)
 		yPos -= 30
 
-		let intervalRow = NSView(frame: NSRect(x: 20, y: yPos, width: 440, height: 20))
-
 		timedSyncCheckbox = NSButton(
 			checkboxWithTitle: "Enable background check every:",
 			target: self,
 			action: #selector(settingChanged)
 		)
-		timedSyncCheckbox.frame = NSRect(x: 0, y: 0, width: 220, height: 20)
-		timedSyncCheckbox.state = settingsManager.settings.timedSyncEnabled ? .on : .off
-		intervalRow.addSubview(timedSyncCheckbox)
+		timedSyncCheckbox.frame = NSRect(x: 20, y: yPos, width: 230, height: 20)
+		view.addSubview(timedSyncCheckbox)
 
 		intervalSlider = NSSlider(
-			value: Double(settingsManager.settings.timedSyncIntervalMs),
+			value: Double(Settings.intervalDefault),
 			minValue: Double(Settings.intervalMin),
 			maxValue: Double(Settings.intervalMax),
 			target: self,
 			action: #selector(intervalChanged)
 		)
-		intervalSlider.frame = NSRect(x: 220, y: 0, width: 150, height: 20)
-		intervalRow.addSubview(intervalSlider)
+		intervalSlider.frame = NSRect(x: 250, y: yPos, width: 140, height: 20)
+		view.addSubview(intervalSlider)
 
-		intervalLabel = NSTextField(labelWithString: formatInterval(settingsManager.settings.timedSyncIntervalMs))
-		intervalLabel.frame = NSRect(x: 380, y: 0, width: 60, height: 20)
+		intervalLabel = NSTextField(labelWithString: formatInterval(Settings.intervalDefault))
+		intervalLabel.frame = NSRect(x: 400, y: yPos, width: 60, height: 20)
 		intervalLabel.alignment = .right
-		intervalRow.addSubview(intervalLabel)
-
-		view.addSubview(intervalRow)
+		view.addSubview(intervalLabel)
 		yPos -= 30
 
 		let timedSyncHelp = NSTextField(wrappingLabelWithString:
@@ -169,7 +175,7 @@ class PreferencesWindowController: NSWindowController {
 		)
 		timedSyncHelp.font = NSFont.systemFont(ofSize: 11)
 		timedSyncHelp.textColor = .secondaryLabelColor
-		timedSyncHelp.frame = NSRect(x: 40, y: yPos, width: 420, height: 44)
+		timedSyncHelp.frame = NSRect(x: 40, y: yPos - 14, width: 420, height: 44)
 		view.addSubview(timedSyncHelp)
 		yPos -= 60
 
@@ -186,7 +192,6 @@ class PreferencesWindowController: NSWindowController {
 			action: #selector(settingChanged)
 		)
 		pauseOnBatteryCheckbox.frame = NSRect(x: 20, y: yPos, width: 440, height: 20)
-		pauseOnBatteryCheckbox.state = settingsManager.settings.pauseTimedSyncOnBattery ? .on : .off
 		view.addSubview(pauseOnBatteryCheckbox)
 		yPos -= 25
 
@@ -196,7 +201,6 @@ class PreferencesWindowController: NSWindowController {
 			action: #selector(settingChanged)
 		)
 		pauseOnLowBatteryCheckbox.frame = NSRect(x: 20, y: yPos, width: 440, height: 20)
-		pauseOnLowBatteryCheckbox.state = settingsManager.settings.pauseTimedSyncOnLowBattery ? .on : .off
 		view.addSubview(pauseOnLowBatteryCheckbox)
 
 		return view
@@ -217,7 +221,7 @@ class PreferencesWindowController: NSWindowController {
 		let gammaRow = NSView(frame: NSRect(x: 20, y: yPos, width: 440, height: 20))
 
 		gammaSlider = NSSlider(
-			value: settingsManager.settings.brightnessGamma,
+			value: Settings.gammaDefault,
 			minValue: Settings.gammaMin,
 			maxValue: Settings.gammaMax,
 			target: self,
@@ -226,7 +230,7 @@ class PreferencesWindowController: NSWindowController {
 		gammaSlider.frame = NSRect(x: 0, y: 0, width: 360, height: 20)
 		gammaRow.addSubview(gammaSlider)
 
-		gammaLabel = NSTextField(labelWithString: String(format: "%.1f", settingsManager.settings.brightnessGamma))
+		gammaLabel = NSTextField(labelWithString: String(format: "%.1f", Settings.gammaDefault))
 		gammaLabel.frame = NSRect(x: 370, y: 0, width: 70, height: 20)
 		gammaLabel.alignment = .right
 		gammaRow.addSubview(gammaLabel)
@@ -255,7 +259,6 @@ class PreferencesWindowController: NSWindowController {
 
 		var yPos: CGFloat = 360
 
-		#if !APP_STORE
 		// Auto-update preferences
 		let updatesLabel = NSTextField(labelWithString: "Software Updates")
 		updatesLabel.font = NSFont.boldSystemFont(ofSize: 13)
@@ -269,7 +272,6 @@ class PreferencesWindowController: NSWindowController {
 			action: #selector(updateCheckSettingChanged)
 		)
 		autoCheckUpdatesCheckbox.frame = NSRect(x: 20, y: yPos, width: 440, height: 20)
-		autoCheckUpdatesCheckbox.state = updaterController?.updater.automaticallyChecksForUpdates ?? false ? .on : .off
 		view.addSubview(autoCheckUpdatesCheckbox)
 		yPos -= 30
 
@@ -283,7 +285,6 @@ class PreferencesWindowController: NSWindowController {
 		updateHelp.frame = NSRect(x: 40, y: yPos - 60, width: 420, height: 70)
 		view.addSubview(updateHelp)
 		yPos -= 90
-		#endif
 
 		// Privacy section
 		let privacyLabel = NSTextField(labelWithString: "Privacy")
@@ -296,13 +297,23 @@ class PreferencesWindowController: NSWindowController {
 			"\(AppInfo.shortName) collects zero user data. Everything runs locally on your Mac.\n\n" +
 				"• No analytics or telemetry\n" +
 				"• No crash reports\n" +
-				"• No network connections (except update checks)\n" +
 				"• Settings stored locally in ~/.twinkley.json"
 		)
 		privacyText.font = NSFont.systemFont(ofSize: 11)
-		privacyText.frame = NSRect(x: 40, y: yPos - 105, width: 420, height: 115)
+		privacyText.frame = NSRect(x: 40, y: yPos - 75, width: 420, height: 85)
 		view.addSubview(privacyText)
-		yPos -= 135
+		yPos -= 105
+
+		let updatePrivacyNote = NSTextField(wrappingLabelWithString:
+			"Update checks connect to GitHub. Your IP address and basic system info " +
+				"(macOS version, app version) are sent to GitHub's servers. " +
+				"We do not control GitHub's privacy practices."
+		)
+		updatePrivacyNote.font = NSFont.systemFont(ofSize: 11)
+		updatePrivacyNote.textColor = .secondaryLabelColor
+		updatePrivacyNote.frame = NSRect(x: 40, y: yPos - 45, width: 420, height: 55)
+		view.addSubview(updatePrivacyNote)
+		yPos -= 65
 
 		let privacyButton = NSButton(title: "Read Full Privacy Policy", target: self, action: #selector(openPrivacyPolicy))
 		privacyButton.bezelStyle = .rounded
@@ -316,7 +327,7 @@ class PreferencesWindowController: NSWindowController {
 
 	@objc
 	private func settingChanged() {
-		settingsManager.update { settings in
+		context?.settingsManager?.update { settings in
 			settings.liveSyncEnabled = liveSyncCheckbox.state == .on
 			settings.timedSyncEnabled = timedSyncCheckbox.state == .on
 			settings.timedSyncIntervalMs = Int(intervalSlider.doubleValue)
@@ -324,9 +335,7 @@ class PreferencesWindowController: NSWindowController {
 			settings.pauseTimedSyncOnLowBattery = pauseOnLowBatteryCheckbox.state == .on
 			settings.brightnessGamma = gammaSlider.doubleValue
 		}
-
-		// Post notification so AppDelegate can update its state
-		NotificationCenter.default.post(name: .settingsChanged, object: nil)
+		context?.onSettingsChanged?()
 	}
 
 	@objc
@@ -343,12 +352,10 @@ class PreferencesWindowController: NSWindowController {
 		settingChanged()
 	}
 
-	#if !APP_STORE
 	@objc
 	private func updateCheckSettingChanged() {
-		updaterController?.updater.automaticallyChecksForUpdates = autoCheckUpdatesCheckbox.state == .on
+		context?.setAutoUpdateEnabled?(autoCheckUpdatesCheckbox.state == .on)
 	}
-	#endif
 
 	@objc
 	private func openPrivacyPolicy() {
@@ -367,9 +374,4 @@ class PreferencesWindowController: NSWindowController {
 			return String(format: "%.1fs", seconds)
 		}
 	}
-}
-
-// Notification for settings changes
-extension Notification.Name {
-	static let settingsChanged = Notification.Name("settingsChanged")
 }

@@ -3,14 +3,23 @@ import XCTest
 
 final class AppInfoTests: XCTestCase {
 	func testVersionFormat() {
-		// Version should be in semver format (x.y.z)
+		// Version should be in semver format (x.y.z or x.y.z-prerelease)
 		let version = AppInfo.version
 		let components = version.split(separator: ".")
 
 		XCTAssertEqual(components.count, 3, "Version should have 3 components (major.minor.patch)")
 
-		for component in components {
-			XCTAssertNotNil(Int(component), "Each version component should be a number")
+		// Major and minor must be numeric
+		XCTAssertNotNil(Int(components[0]), "Major version should be a number")
+		XCTAssertNotNil(Int(components[1]), "Minor version should be a number")
+
+		// Patch can have pre-release suffix (e.g., "0-beta1")
+		let patchParts = components[2].split(separator: "-", maxSplits: 1)
+		XCTAssertNotNil(Int(patchParts[0]), "Patch version should be a number")
+
+		// If there's a pre-release tag, it should be non-empty
+		if patchParts.count > 1 {
+			XCTAssertFalse(patchParts[1].isEmpty, "Pre-release tag should not be empty")
 		}
 	}
 

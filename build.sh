@@ -100,7 +100,7 @@ APP_DIR="$HOME/Applications/$APP_NAME.app"
 BUNDLE_ID="com.local.$APP_NAME"
 
 # Extract version from Settings.swift (single source of truth)
-VERSION=$(grep 'static let version = "' Sources/Core/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
+VERSION=$(grep 'static let version = "' Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
 if [ -z "$VERSION" ]; then
 	echo "❌ Failed to extract version from Settings.swift"
 	exit 1
@@ -148,6 +148,11 @@ fi
 
 # Step 4: Build release
 echo ""
+
+# ALWAYS clean to prevent stale .o files from deleted sources
+echo "▶ Cleaning previous build artifacts..."
+swift package clean > /dev/null 2>&1 || true
+
 if [ "$UNIVERSAL_BUILD" = true ]; then
 	echo "▶ Building universal binary (arm64 + x86_64)..."
 
@@ -166,6 +171,22 @@ if [ "$UNIVERSAL_BUILD" = true ]; then
 		.build/arm64-apple-macosx/release/$APP_NAME \
 		.build/x86_64-apple-macosx/release/$APP_NAME \
 		-output .build/universal/$APP_NAME
+
+	# Also combine Core library if it exists
+	if [ -f ".build/arm64-apple-macosx/release/libTwinKleyCore.dylib" ]; then
+		lipo -create \
+			.build/arm64-apple-macosx/release/libTwinKleyCore.dylib \
+			.build/x86_64-apple-macosx/release/libTwinKleyCore.dylib \
+			-output .build/universal/libTwinKleyCore.dylib
+	fi
+
+	# Also combine UI library if it exists
+	if [ -f ".build/arm64-apple-macosx/release/libTwinKleyUI.dylib" ]; then
+		lipo -create \
+			.build/arm64-apple-macosx/release/libTwinKleyUI.dylib \
+			.build/x86_64-apple-macosx/release/libTwinKleyUI.dylib \
+			-output .build/universal/libTwinKleyUI.dylib
+	fi
 
 	BUILT_BINARY=".build/universal/$APP_NAME"
 else
@@ -194,6 +215,50 @@ if [ -d ".build/release/Sparkle.framework" ]; then
 
 	# Add rpath so binary can find Sparkle framework
 	install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_DIR/Contents/MacOS/$APP_NAME" 2>/dev/null || true
+fi
+
+# Step 6b: Copy TwinKleyCore dynamic library (shared between main and UI)
+if [ "$UNIVERSAL_BUILD" = true ] && [ -f ".build/universal/libTwinKleyCore.dylib" ]; then
+	CORE_LIB_SOURCE=".build/universal/libTwinKleyCore.dylib"
+elif [ -f ".build/release/libTwinKleyCore.dylib" ]; then
+	CORE_LIB_SOURCE=".build/release/libTwinKleyCore.dylib"
+else
+	CORE_LIB_SOURCE=""
+fi
+
+if [ -n "$CORE_LIB_SOURCE" ]; then
+	echo "  Copying TwinKleyCore library..."
+	strip -S -x "$CORE_LIB_SOURCE" -o "$APP_DIR/Contents/Frameworks/libTwinKleyCore.dylib"
+	install_name_tool -id "@rpath/libTwinKleyCore.dylib" "$APP_DIR/Contents/Frameworks/libTwinKleyCore.dylib" 2>/dev/null || true
+
+	# Update main binary to use @rpath for TwinKleyCore
+	install_name_tool -change "$CORE_LIB_SOURCE" "@rpath/libTwinKleyCore.dylib" "$APP_DIR/Contents/MacOS/$APP_NAME" 2>/dev/null || true
+
+	CORE_LIB_SIZE=$(ls -lh "$APP_DIR/Contents/Frameworks/libTwinKleyCore.dylib" | awk '{print $5}')
+	echo "    Core library size: $CORE_LIB_SIZE (stripped)"
+fi
+
+# Step 6c: Copy TwinKleyUI dynamic library (loaded on-demand for debug/preferences)
+if [ "$UNIVERSAL_BUILD" = true ] && [ -f ".build/universal/libTwinKleyUI.dylib" ]; then
+	UI_LIB_SOURCE=".build/universal/libTwinKleyUI.dylib"
+elif [ -f ".build/release/libTwinKleyUI.dylib" ]; then
+	UI_LIB_SOURCE=".build/release/libTwinKleyUI.dylib"
+else
+	UI_LIB_SOURCE=""
+fi
+
+if [ -n "$UI_LIB_SOURCE" ]; then
+	echo "  Copying TwinKleyUI library..."
+	strip -S -x "$UI_LIB_SOURCE" -o "$APP_DIR/Contents/Frameworks/libTwinKleyUI.dylib"
+	install_name_tool -id "@rpath/libTwinKleyUI.dylib" "$APP_DIR/Contents/Frameworks/libTwinKleyUI.dylib" 2>/dev/null || true
+
+	# Update UI library to use @rpath for TwinKleyCore (shared dependency)
+	if [ -n "$CORE_LIB_SOURCE" ]; then
+		install_name_tool -change "$CORE_LIB_SOURCE" "@rpath/libTwinKleyCore.dylib" "$APP_DIR/Contents/Frameworks/libTwinKleyUI.dylib" 2>/dev/null || true
+	fi
+
+	UI_LIB_SIZE=$(ls -lh "$APP_DIR/Contents/Frameworks/libTwinKleyUI.dylib" | awk '{print $5}')
+	echo "    UI library size: $UI_LIB_SIZE (stripped)"
 fi
 
 # Signing happens after all resources are added (see Step 10b below)
@@ -311,6 +376,13 @@ SWIFT_ICON
 	echo "    After $ICON_OPTIMIZER: ${OPTIMIZED_PNG_SIZE}KB (${PNG_REDUCTION}% smaller)"
 	echo "    Final icns:    ${ICON_SIZE_KB}KB (iconutil re-encodes to 32-bit)"
 fi
+
+# Step 7b: Generate menu bar icon (PDF - smaller than inline drawing code)
+echo ""
+echo "▶ Generating menu bar icon..."
+swift scripts/generate-menubar-icon.swift "$APP_DIR/Contents/Resources/MenuBarIcon.pdf"
+MENUBAR_ICON_SIZE=$(wc -c < "$APP_DIR/Contents/Resources/MenuBarIcon.pdf" | awk '{print $1}')
+echo "  Menu bar icon: ${MENUBAR_ICON_SIZE} bytes"
 
 # Save build stats for audit script
 BINARY_SIZE_KB=$(wc -c < "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '{print int($1/1024)}')

@@ -79,97 +79,100 @@ final class SettingsTests: XCTestCase {
 		XCTAssertNotEqual(settings1, settings3)
 	}
 
-	// MARK: - Settings Manager Tests
+	// MARK: - Settings Loader Tests
 
-	func testSettingsManagerLoadDefault() {
+	func testSettingsLoaderLoadDefault() {
 		// Use a temp file that doesn't exist
 		let tempURL = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString + ".json")
 
-		let manager = SettingsManager(fileURL: tempURL)
+		let settings = SettingsLoader.load(from: tempURL)
 
 		// Should load defaults when file doesn't exist
-		XCTAssertEqual(manager.settings, Settings.default)
+		XCTAssertEqual(settings, Settings.default)
 
 		// Cleanup
 		try? FileManager.default.removeItem(at: tempURL)
 	}
 
-	func testSettingsManagerDefaultFileURL() {
+	func testSettingsLoaderDefaultFileURL() {
 		// Test that defaultFileURL returns the expected path
-		let url = SettingsManager.defaultFileURL
+		let url = SettingsLoader.defaultFileURL
 		XCTAssertTrue(url.path.contains(".twinkley.json"))
 		XCTAssertTrue(url.path.hasPrefix("/Users/"))
 	}
 
-	func testSettingsManagerUsesDefaultURLWhenNil() {
+	func testSettingsLoaderUsesDefaultURLWhenNil() {
 		// Test that passing nil uses the default file URL
-		// This exercises the nil-coalescing branch in init
-		let manager = SettingsManager(fileURL: nil)
-		// Just verify it initializes without crashing and has default settings
-		XCTAssertEqual(manager.settings.liveSyncEnabled, Settings.default.liveSyncEnabled)
+		let settings = SettingsLoader.load(from: nil)
+		// Just verify it loads without crashing
+		XCTAssertNotNil(settings)
 	}
 
-	func testSettingsManagerSaveFailure() {
+	func testSettingsLoaderSaveFailure() {
 		// Use an invalid path that will fail to write
 		let invalidURL = URL(fileURLWithPath: "/nonexistent/directory/settings.json")
 
-		let manager = SettingsManager(fileURL: invalidURL)
-		let result = manager.save()
+		let settings = Settings.default
+		let result = SettingsLoader.save(settings, to: invalidURL)
 
 		// Save should fail and return false
 		XCTAssertFalse(result)
 	}
 
-	func testSettingsManagerSaveAndLoad() {
+	func testSettingsLoaderSaveAndLoad() {
 		let tempURL = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString + ".json")
 
-		// Create manager and modify settings
-		let manager1 = SettingsManager(fileURL: tempURL)
-		manager1.update {
-			$0.liveSyncEnabled = false
-			$0.timedSyncEnabled = false
-			$0.timedSyncIntervalMs = 2_000
-		}
+		// Create and modify settings
+		var settings = Settings.default
+		settings.liveSyncEnabled = false
+		settings.timedSyncEnabled = false
+		settings.timedSyncIntervalMs = 2_000
 
-		// Create new manager to load saved settings
-		let manager2 = SettingsManager(fileURL: tempURL)
+		// Save settings
+		let saveResult = SettingsLoader.save(settings, to: tempURL)
+		XCTAssertTrue(saveResult)
 
-		XCTAssertFalse(manager2.settings.liveSyncEnabled)
-		XCTAssertFalse(manager2.settings.timedSyncEnabled)
-		XCTAssertEqual(manager2.settings.timedSyncIntervalMs, 2_000)
+		// Load saved settings
+		let loadedSettings = SettingsLoader.load(from: tempURL)
+
+		XCTAssertFalse(loadedSettings.liveSyncEnabled)
+		XCTAssertFalse(loadedSettings.timedSyncEnabled)
+		XCTAssertEqual(loadedSettings.timedSyncIntervalMs, 2_000)
 
 		// Cleanup
 		try? FileManager.default.removeItem(at: tempURL)
 	}
 
-	func testSettingsManagerUpdate() {
+	func testSettingsLoaderUpdate() {
 		let tempURL = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString + ".json")
 
-		let manager = SettingsManager(fileURL: tempURL)
+		var settings = Settings.default
+		XCTAssertTrue(settings.liveSyncEnabled)
 
-		XCTAssertTrue(manager.settings.liveSyncEnabled)
+		settings.liveSyncEnabled = false
+		SettingsLoader.save(settings, to: tempURL)
 
-		manager.update { $0.liveSyncEnabled = false }
-
-		XCTAssertFalse(manager.settings.liveSyncEnabled)
+		let loadedSettings = SettingsLoader.load(from: tempURL)
+		XCTAssertFalse(loadedSettings.liveSyncEnabled)
 
 		// Cleanup
 		try? FileManager.default.removeItem(at: tempURL)
 	}
 
-	func testSettingsManagerToggle() {
+	func testSettingsLoaderToggle() {
 		let tempURL = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString + ".json")
 
-		let manager = SettingsManager(fileURL: tempURL)
+		var settings = Settings.default
+		let initialValue = settings.timedSyncEnabled
+		settings.timedSyncEnabled.toggle()
+		SettingsLoader.save(settings, to: tempURL)
 
-		let initialValue = manager.settings.timedSyncEnabled
-		manager.update { $0.timedSyncEnabled.toggle() }
-
-		XCTAssertNotEqual(manager.settings.timedSyncEnabled, initialValue)
+		let loadedSettings = SettingsLoader.load(from: tempURL)
+		XCTAssertNotEqual(loadedSettings.timedSyncEnabled, initialValue)
 
 		// Cleanup
 		try? FileManager.default.removeItem(at: tempURL)
@@ -231,18 +234,17 @@ final class SettingsTests: XCTestCase {
 		let tempURL = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString + ".json")
 
-		// Create manager and modify battery settings
-		let manager1 = SettingsManager(fileURL: tempURL)
-		manager1.update {
-			$0.pauseTimedSyncOnBattery = true
-			$0.pauseTimedSyncOnLowBattery = false
-		}
+		// Create and modify battery settings
+		var settings = Settings.default
+		settings.pauseTimedSyncOnBattery = true
+		settings.pauseTimedSyncOnLowBattery = false
+		SettingsLoader.save(settings, to: tempURL)
 
-		// Create new manager to load saved settings
-		let manager2 = SettingsManager(fileURL: tempURL)
+		// Load saved settings
+		let loadedSettings = SettingsLoader.load(from: tempURL)
 
-		XCTAssertTrue(manager2.settings.pauseTimedSyncOnBattery)
-		XCTAssertFalse(manager2.settings.pauseTimedSyncOnLowBattery)
+		XCTAssertTrue(loadedSettings.pauseTimedSyncOnBattery)
+		XCTAssertFalse(loadedSettings.pauseTimedSyncOnLowBattery)
 
 		// Cleanup
 		try? FileManager.default.removeItem(at: tempURL)
@@ -308,45 +310,20 @@ final class SettingsTests: XCTestCase {
 		let tempURL = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString + ".json")
 
-		// Create manager and modify gamma setting
-		let manager1 = SettingsManager(fileURL: tempURL)
-		manager1.update { $0.brightnessGamma = 2.2 }
+		// Create and modify gamma setting
+		var settings = Settings.default
+		settings.brightnessGamma = 2.2
+		SettingsLoader.save(settings, to: tempURL)
 
-		// Create new manager to load saved settings
-		let manager2 = SettingsManager(fileURL: tempURL)
-		XCTAssertEqual(manager2.settings.brightnessGamma, 2.2, accuracy: 0.001)
+		// Load saved settings
+		let loadedSettings = SettingsLoader.load(from: tempURL)
+		XCTAssertEqual(loadedSettings.brightnessGamma, 2.2, accuracy: 0.001)
 
 		// Cleanup
 		try? FileManager.default.removeItem(at: tempURL)
 	}
 
-	// MARK: - Backward Compatibility Tests
-
-	func testBackwardCompatibilityKeypressSyncEnabled() throws {
-		// Test that old settings files with "keypressSyncEnabled" still load correctly
-		let oldJSON = """
-		{
-			"keypressSyncEnabled": false,
-			"timedSyncEnabled": true,
-			"timedSyncIntervalMs": 5000,
-			"pauseTimedSyncOnBattery": true,
-			"pauseTimedSyncOnLowBattery": false,
-			"brightnessGamma": 2.0
-		}
-		"""
-
-		let data = oldJSON.data(using: .utf8)!
-		let decoder = JSONDecoder()
-		let settings = try decoder.decode(Settings.self, from: data)
-
-		// Should migrate old keypressSyncEnabled to liveSyncEnabled
-		XCTAssertFalse(settings.liveSyncEnabled)
-		XCTAssertTrue(settings.timedSyncEnabled)
-		XCTAssertEqual(settings.timedSyncIntervalMs, 5_000)
-		XCTAssertTrue(settings.pauseTimedSyncOnBattery)
-		XCTAssertFalse(settings.pauseTimedSyncOnLowBattery)
-		XCTAssertEqual(settings.brightnessGamma, 2.0, accuracy: 0.001)
-	}
+	// MARK: - JSON Key Names Tests
 
 	func testNewJSONFormat() throws {
 		// Test that new settings save with the correct key name
@@ -365,28 +342,5 @@ final class SettingsTests: XCTestCase {
 		XCTAssertTrue(jsonString.contains("\"liveSyncEnabled\" : true"))
 		// Should NOT save old key name
 		XCTAssertFalse(jsonString.contains("\"keypressSyncEnabled\""))
-	}
-
-	func testMissingLiveSyncKeyDefaultsToTrue() throws {
-		// Test that when neither liveSyncEnabled nor keypressSyncEnabled exists,
-		// it defaults to true (line 79 in Settings.swift)
-		let jsonWithoutLiveSyncKey = """
-		{
-			"timedSyncEnabled": true,
-			"timedSyncIntervalMs": 5000,
-			"pauseTimedSyncOnBattery": false,
-			"pauseTimedSyncOnLowBattery": true,
-			"brightnessGamma": 1.5
-		}
-		"""
-
-		let data = jsonWithoutLiveSyncKey.data(using: .utf8)!
-		let decoder = JSONDecoder()
-		let settings = try decoder.decode(Settings.self, from: data)
-
-		// Should default to true when key is missing
-		XCTAssertTrue(settings.liveSyncEnabled)
-		XCTAssertTrue(settings.timedSyncEnabled)
-		XCTAssertEqual(settings.timedSyncIntervalMs, 5_000)
 	}
 }

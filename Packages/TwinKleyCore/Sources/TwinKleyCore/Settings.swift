@@ -22,6 +22,7 @@ public struct Settings: Codable, Equatable {
 	public var pauseTimedSyncOnLowBattery: Bool // Pause polling when battery < 20%
 	public var brightnessGamma: Double // Gamma curve for perceptual brightness matching
 	public var hasLaunchedBefore: Bool // First-run tracking
+	public var hasAcknowledgedUpdatePrivacy: Bool // User acknowledged GitHub privacy notice
 
 	public static let intervalMin = 100
 	public static let intervalMax = 60_000 // Up to 1 minute
@@ -38,7 +39,8 @@ public struct Settings: Codable, Equatable {
 		pauseTimedSyncOnBattery: false,
 		pauseTimedSyncOnLowBattery: true,
 		brightnessGamma: gammaDefault,
-		hasLaunchedBefore: false
+		hasLaunchedBefore: false,
+		hasAcknowledgedUpdatePrivacy: false
 	)
 
 	public init(
@@ -48,7 +50,8 @@ public struct Settings: Codable, Equatable {
 		pauseTimedSyncOnBattery: Bool = false,
 		pauseTimedSyncOnLowBattery: Bool = true,
 		brightnessGamma: Double = gammaDefault,
-		hasLaunchedBefore: Bool = false
+		hasLaunchedBefore: Bool = false,
+		hasAcknowledgedUpdatePrivacy: Bool = false
 	) {
 		self.liveSyncEnabled = liveSyncEnabled
 		self.timedSyncEnabled = timedSyncEnabled
@@ -57,53 +60,10 @@ public struct Settings: Codable, Equatable {
 		self.pauseTimedSyncOnLowBattery = pauseTimedSyncOnLowBattery
 		self.brightnessGamma = Self.clampGamma(brightnessGamma)
 		self.hasLaunchedBefore = hasLaunchedBefore
+		self.hasAcknowledgedUpdatePrivacy = hasAcknowledgedUpdatePrivacy
 	}
 
-	// MARK: - Backward Compatibility
-
-	enum CodingKeys: String, CodingKey {
-		case liveSyncEnabled
-		case keypressSyncEnabled // Old name for backward compatibility
-		case timedSyncEnabled
-		case timedSyncIntervalMs
-		case pauseTimedSyncOnBattery
-		case pauseTimedSyncOnLowBattery
-		case brightnessGamma
-		case hasLaunchedBefore
-	}
-
-	public init(from decoder: Decoder) throws {
-		let container = try decoder.container(keyedBy: CodingKeys.self)
-
-		// Try new name first, fall back to old name for backward compatibility
-		if let liveSyncEnabled = try? container.decode(Bool.self, forKey: .liveSyncEnabled) {
-			self.liveSyncEnabled = liveSyncEnabled
-		} else if let keypressSyncEnabled = try? container.decode(Bool.self, forKey: .keypressSyncEnabled) {
-			liveSyncEnabled = keypressSyncEnabled // Migrate old setting
-		} else {
-			liveSyncEnabled = true // Default if neither exists
-		}
-
-		timedSyncEnabled = try container.decode(Bool.self, forKey: .timedSyncEnabled)
-		timedSyncIntervalMs = try Self.clampInterval(container.decode(Int.self, forKey: .timedSyncIntervalMs))
-		pauseTimedSyncOnBattery = try container.decode(Bool.self, forKey: .pauseTimedSyncOnBattery)
-		pauseTimedSyncOnLowBattery = try container.decode(Bool.self, forKey: .pauseTimedSyncOnLowBattery)
-		brightnessGamma = try Self.clampGamma(container.decode(Double.self, forKey: .brightnessGamma))
-		// Backward compatibility: default to false if key doesn't exist
-		hasLaunchedBefore = (try? container.decode(Bool.self, forKey: .hasLaunchedBefore)) ?? false
-	}
-
-	public func encode(to encoder: Encoder) throws {
-		var container = encoder.container(keyedBy: CodingKeys.self)
-		// Only encode the new name
-		try container.encode(liveSyncEnabled, forKey: .liveSyncEnabled)
-		try container.encode(timedSyncEnabled, forKey: .timedSyncEnabled)
-		try container.encode(timedSyncIntervalMs, forKey: .timedSyncIntervalMs)
-		try container.encode(pauseTimedSyncOnBattery, forKey: .pauseTimedSyncOnBattery)
-		try container.encode(pauseTimedSyncOnLowBattery, forKey: .pauseTimedSyncOnLowBattery)
-		try container.encode(brightnessGamma, forKey: .brightnessGamma)
-		try container.encode(hasLaunchedBefore, forKey: .hasLaunchedBefore)
-	}
+	// Uses synthesized Codable - no backward compatibility needed (pre-v1)
 
 	/// Clamp interval to valid range
 	public static func clampInterval(_ value: Int) -> Int {
@@ -121,44 +81,32 @@ public struct Settings: Codable, Equatable {
 	}
 }
 
-/// Manages loading and saving settings
-public class SettingsManager {
-	private let fileURL: URL
-	public private(set) var settings: Settings
+// SettingsManager moved to TwinKleyUI for lazy loading
 
-	public init(fileURL: URL? = nil) {
-		self.fileURL = fileURL ?? Self.defaultFileURL
-		settings = Settings.default
-		load()
-	}
-
+/// Minimal settings loader for main binary (minimal code, kept in Core for fast startup)
+public enum SettingsLoader {
 	public static var defaultFileURL: URL {
 		FileManager.default.homeDirectoryForCurrentUser
 			.appendingPathComponent(".twinkley.json")
 	}
 
-	/// Load settings from disk
-	public func load() {
+	/// Quick load settings from disk (returns default on error)
+	public static func load(from url: URL? = nil) -> Settings {
+		let fileURL = url ?? defaultFileURL
 		guard let data = try? Data(contentsOf: fileURL),
 			  let decoded = try? JSONDecoder().decode(Settings.self, from: data) else
 		{
-			settings = Settings.default
-			return
+			return Settings.default
 		}
-		settings = decoded
+		return decoded
 	}
 
-	/// Save settings to disk
+	/// Quick save settings to disk
 	@discardableResult
-	public func save() -> Bool {
+	public static func save(_ settings: Settings, to url: URL? = nil) -> Bool {
+		let fileURL = url ?? defaultFileURL
 		let encoder = JSONEncoder()
 		encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 		return (try? encoder.encode(settings).write(to: fileURL)) != nil
-	}
-
-	/// Update a setting and save
-	public func update(_ block: (inout Settings) -> Void) {
-		block(&settings)
-		save()
 	}
 }

@@ -6,15 +6,143 @@ import TwinKleyCore
 import Sparkle
 #endif
 
-// MARK: - Debug Mode
+// MARK: - Debug Mode (lazy loaded from UI library when needed)
 
-private let debugEnabledViaCLI = CommandLine.arguments.contains("--debug")
-private var debugEnabled = CommandLine.arguments.contains("--debug")
+// Simple debug flags that can be checked without loading UI library
+private let debugFlagPresent = CommandLine.arguments.contains("--debug") || CommandLine.arguments.contains("-d")
+private let verboseFlagPresent = CommandLine.arguments.contains("--verbose") || CommandLine.arguments.contains("-v")
+private let captureFlagPresent = CommandLine.arguments.contains { $0.hasPrefix("--capture") }
+private let helpFlagPresent = CommandLine.arguments.contains("--help") || CommandLine.arguments.contains("-h")
+private let showBrightnessFlagPresent = CommandLine.arguments.contains("--show-brightness")
+private let syncHistoryFlagPresent = CommandLine.arguments.contains("--sync-history")
+
+// Debug enabled if any debug flag is present (simple check, no UI library needed)
+private var debugEnabled = debugFlagPresent || verboseFlagPresent || syncHistoryFlagPresent
+
+// Minimal debug options struct (populated from CLI flags without loading UI library)
+private struct DebugOptionsMinimal {
+	var loggingEnabled: Bool
+	var captureKeypresses: Bool
+	var captureDuration: Int
+	var verboseEvents: Bool
+	var showBrightnessInMenu: Bool
+	var logSyncHistory: Bool
+
+	static func fromFlags() -> DebugOptionsMinimal {
+		var duration = 30
+		// Parse --capture=SECONDS if present
+		for arg in CommandLine.arguments where arg.hasPrefix("--capture=") {
+			let durationStr = String(arg.dropFirst("--capture=".count))
+			duration = Int(durationStr) ?? 30
+		}
+		return DebugOptionsMinimal(
+			loggingEnabled: debugFlagPresent || verboseFlagPresent || syncHistoryFlagPresent,
+			captureKeypresses: captureFlagPresent,
+			captureDuration: duration,
+			verboseEvents: verboseFlagPresent,
+			showBrightnessInMenu: showBrightnessFlagPresent,
+			logSyncHistory: syncHistoryFlagPresent
+		)
+	}
+}
+
+private var debugOptions = DebugOptionsMinimal.fromFlags()
+
+// Cache for UI library handle (loaded once, reused)
+private var _uiLibraryHandle: UnsafeMutableRawPointer?
+private var _uiLoader: NSObject?
+
+/// Load UI library and get the loader object (for CLI utilities and windows)
+private func getUILoader() -> NSObject? {
+	if let loader = _uiLoader { return loader }
+
+	// Load dylib if not already loaded
+	if _uiLibraryHandle == nil {
+		let bundlePath = Bundle.main.privateFrameworksPath ?? ""
+		let bundleLibPath = "\(bundlePath)/libTwinKleyUI.dylib"
+		let execPath = Bundle.main.executablePath ?? ""
+		let execDir = (execPath as NSString).deletingLastPathComponent
+		let debugLibPath = "\(execDir)/libTwinKleyUI.dylib"
+
+		if FileManager.default.fileExists(atPath: bundleLibPath) {
+			_uiLibraryHandle = dlopen(bundleLibPath, RTLD_NOW)
+		} else if FileManager.default.fileExists(atPath: debugLibPath) {
+			_uiLibraryHandle = dlopen(debugLibPath, RTLD_NOW)
+		}
+	}
+
+	guard _uiLibraryHandle != nil else { return nil }
+
+	// Get the loader instance
+	if let loaderClass = NSClassFromString("TwinKleyUI.TwinKleyUILoader") as? NSObject.Type,
+	   let loader = loaderClass.value(forKey: "shared") as? NSObject
+	{
+		_uiLoader = loader
+		return loader
+	}
+	return nil
+}
 
 // Debug log file for capturing output when running in background
 private var debugLogURL: URL? {
 	guard debugEnabled else { return nil }
 	return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".twinkley-debug.log")
+}
+
+// Handle --help flag (loads UI library for full help text)
+private func handleHelpIfNeeded() {
+	guard helpFlagPresent else { return }
+	print("\(AppInfo.name) v\(AppInfo.version)")
+	print("")
+	print("Usage: TwinKley [OPTIONS]")
+	print("")
+	// Load UI library for full help text
+	if let loader = getUILoader(),
+	   let helpText = loader.perform(NSSelectorFromString("getHelpText"))?.takeUnretainedValue() as? String
+	{
+		print(helpText)
+	} else {
+		// Fallback help if UI library not available
+		print("Debug Options:")
+		print("  --debug, -d     Enable debug logging")
+		print("  --verbose, -v   Log all system events")
+		print("  --help, -h      Show this help")
+	}
+	exit(0)
+}
+
+// Handle --health-check flag (uses UI library for most output)
+private func handleHealthCheck() -> Bool {
+	guard CommandLine.arguments.contains("--health-check") else { return false }
+
+	// Try to use UI library for health check
+	if let loader = getUILoader() {
+		// Run health check from UI library (handles accessibility, frameworks, mac model)
+		let exitCode = loader.perform(NSSelectorFromString("runHealthCheck"))?.toOpaque()
+		let code = Int32(Int(bitPattern: exitCode))
+
+		// Add display brightness check (requires main binary's brightness API)
+		if let getFunc = getBrightnessFunc {
+			var brightness: Float = 0
+			let result = getFunc(CGMainDisplayID(), &brightness)
+			if result == 0 {
+				print("Display Brightness: \(String(format: "%.1f%%", brightness * 100))")
+			} else {
+				print("Display Brightness: ✗ Read failed")
+			}
+		} else {
+			print("Display Brightness: ✗ API unavailable")
+		}
+
+		exit(code)
+	}
+
+	// Fallback: minimal health check without UI library
+	print("TwinK[l]ey Health Check (minimal)")
+	print("=================================")
+	let hasAccessibility = AXIsProcessTrusted()
+	print("Accessibility: \(hasAccessibility ? "✓ Granted" : "✗ Not granted")")
+	exit(hasAccessibility ? 0 : 1)
 }
 
 func debugLog(_ message: String) {
@@ -39,39 +167,7 @@ func debugLog(_ message: String) {
 }
 
 // MARK: - Power State Monitor (notification-based, no polling)
-
-struct PowerState {
-	var isOnBattery: Bool
-	var batteryLevel: Int // 0-100, or -1 if unknown
-	var isLowBattery: Bool { batteryLevel >= 0 && batteryLevel < 20 }
-
-	static func current() -> PowerState {
-		var isOnBattery = false
-		var batteryLevel = -1
-
-		guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
-			  let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef] else
-		{
-			return PowerState(isOnBattery: false, batteryLevel: -1)
-		}
-
-		for source in sources {
-			guard let info = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any] else {
-				continue
-			}
-
-			if let powerSource = info[kIOPSPowerSourceStateKey] as? String {
-				isOnBattery = (powerSource == kIOPSBatteryPowerValue)
-			}
-
-			if let capacity = info[kIOPSCurrentCapacityKey] as? Int {
-				batteryLevel = capacity
-			}
-		}
-
-		return PowerState(isOnBattery: isOnBattery, batteryLevel: batteryLevel)
-	}
-}
+// Note: PowerState struct is defined in TwinKleyCore
 
 class PowerStateMonitor {
 	var onPowerStateChanged: ((PowerState) -> Void)?
@@ -121,7 +217,7 @@ private var getBrightnessFunc: ((UInt32, UnsafeMutablePointer<Float>) -> Int32)?
 }()
 
 /// Wrapper for display brightness that conforms to BrightnessProvider protocol
-class DisplayBrightnessProvider: BrightnessProvider {
+class DisplayBrightnessProvider: BrightnessProvider, DisplayBrightnessProtocol {
 	func getDisplayBrightness() -> Float? {
 		guard let getFunc = getBrightnessFunc else { return nil }
 		var brightness: Float = 0
@@ -132,12 +228,13 @@ class DisplayBrightnessProvider: BrightnessProvider {
 
 // MARK: - Keyboard Brightness (using KeyboardBrightnessClient - lazy loaded)
 
-class KeyboardBrightnessController: BrightnessController {
+class KeyboardBrightnessController: BrightnessController, KeyboardBrightnessProtocol {
 	private var client: AnyObject?
 	private var keyboardID: UInt64 = 0
 	private var isInitialized = false
 
 	private let setBrightnessSelector = NSSelectorFromString("setBrightness:forKeyboard:")
+	private let getBrightnessSelector = NSSelectorFromString("brightnessForKeyboard:")
 	private let getKeyboardIDsSelector = NSSelectorFromString("copyKeyboardBacklightIDs")
 
 	// Cache objc_msgSend pointer to avoid repeated dlsym lookups
@@ -187,23 +284,72 @@ class KeyboardBrightnessController: BrightnessController {
 		return setFunc(client, setBrightnessSelector, level, keyboardID)
 	}
 
+	/// Get current keyboard brightness (0.0 - 1.0)
+	func getKeyboardBrightness() -> Float? {
+		guard ensureInitialized(),
+			  let client,
+			  client.responds(to: getBrightnessSelector) else
+		{
+			return nil
+		}
+
+		typealias GetBrightnessFunc = @convention(c) (AnyObject, Selector, UInt64) -> Float
+		let getFunc = unsafeBitCast(Self.objcMsgSendPtr, to: GetBrightnessFunc.self)
+
+		return getFunc(client, getBrightnessSelector, keyboardID)
+	}
+
 	var isReady: Bool {
 		ensureInitialized()
+	}
+
+	/// Get all keyboard backlight IDs (for diagnostics)
+	func getKeyboardBacklightIDs() -> [UInt64] {
+		guard ensureInitialized(),
+			  let client,
+			  client.responds(to: getKeyboardIDsSelector),
+			  let ids = client.perform(getKeyboardIDsSelector)?.takeUnretainedValue() as? [NSNumber]
+		else {
+			return []
+		}
+		return ids.map(\.uint64Value)
+	}
+
+	/// Get the currently active keyboard ID
+	var activeKeyboardID: UInt64 {
+		_ = ensureInitialized()
+		return keyboardID
 	}
 }
 
 // MARK: - Brightness Key Event Monitor
 
-class BrightnessKeyMonitor {
+class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 	private var eventTap: CFMachPort?
 	private var runLoopSource: CFRunLoopSource?
 	var onBrightnessKeyPressed: (() -> Void)?
+
+	// Callback for raw event capture (debug window)
+	// Parameters: (eventType, keyCode, keyState)
+	// - eventType: "NX" for NX_SYSDEFINED, "keyDown", "keyUp", "flags"
+	// - keyCode: For NX events, the media key code; for key events, the keyboard key code
+	// - keyState: State flags (for NX) or key code (for key events)
+	var onEventCaptured: ((String, Int, Int) -> Void)?
+
+	// When true, capture ALL key events (not just NX_SYSDEFINED)
+	// This is enabled by the debug window during capture sessions
+	var fullCaptureEnabled = false
+
+	// Event tap health tracking
+	var health = EventTapHealth()
 
 	// NX key types for brightness (from IOKit/hidsystem/ev_keymap.h)
 	private let nxKeytypeBrightnessUp: Int64 = 2
 	private let nxKeytypeBrightnessDown: Int64 = 3
 
 	func start() -> Bool {
+		health.createdTimestamp = Date()
+
 		// We need accessibility permissions for event tap
 		// Listen for keyDown, keyUp, and NX_SYSDEFINED (14) events
 		let eventMask = (1 << CGEventType.keyDown.rawValue) |
@@ -233,6 +379,7 @@ class BrightnessKeyMonitor {
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 		CGEvent.tapEnable(tap: tap, enable: true)
 
+		health.isRunning = true
 		return true
 	}
 
@@ -240,11 +387,44 @@ class BrightnessKeyMonitor {
 		// Handle event tap being disabled by macOS (happens after sleep/wake, timeout, etc.)
 		// kCGEventTapDisabledByTimeout = 0xFFFFFFFE, kCGEventTapDisabledByUserInput = 0xFFFFFFFD
 		if type.rawValue == 0xFFFF_FFFE || type.rawValue == 0xFFFF_FFFD {
+			let isTimeout = type.rawValue == 0xFFFF_FFFE
+			if isTimeout {
+				health.disabledByTimeoutCount += 1
+			} else {
+				health.disabledByUserInputCount += 1
+			}
+			health.lastDisabledTimestamp = Date()
+
 			debugLog("⚠️  Event tap disabled by macOS (type=\(type.rawValue)) - re-enabling")
 			if let tap = eventTap {
 				CGEvent.tapEnable(tap: tap, enable: true)
+				health.reenabledCount += 1
 			}
 			return
+		}
+
+		// Track event receipt
+		health.eventsReceived += 1
+		health.lastEventTimestamp = Date()
+
+		// Capture regular key events when full capture is enabled
+		if fullCaptureEnabled {
+			if type == .keyDown {
+				let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+				DispatchQueue.main.async { [weak self] in
+					self?.onEventCaptured?("keyDown", keyCode, 0)
+				}
+			} else if type == .keyUp {
+				let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+				DispatchQueue.main.async { [weak self] in
+					self?.onEventCaptured?("keyUp", keyCode, 0)
+				}
+			} else if type == .flagsChanged {
+				let flags = Int(event.flags.rawValue)
+				DispatchQueue.main.async { [weak self] in
+					self?.onEventCaptured?("flags", flags, 0)
+				}
+			}
 		}
 
 		// Check for regular key events (Fn+F1/F2)
@@ -253,6 +433,7 @@ class BrightnessKeyMonitor {
 			// F1 = 122, F2 = 120 (when used with Fn for brightness)
 			// key codes 144/145 are brightness up/down on some keyboards
 			if keyCode == 122 || keyCode == 120 || keyCode == 145 || keyCode == 144 {
+				health.brightnessEventsReceived += 1
 				debugLog("Brightness key (F1/F2) detected")
 				DispatchQueue.main.async { [weak self] in
 					self?.onBrightnessKeyPressed?()
@@ -263,12 +444,21 @@ class BrightnessKeyMonitor {
 		// Check for NX_SYSDEFINED events (media keys including brightness)
 		if type.rawValue == 14 { // NX_SYSDEFINED
 			let data1 = event.getIntegerValueField(CGEventField(rawValue: 85)!) // data1 field
-			let keyCode = (data1 >> 16) & 0xFF
-			// keyState: 0xA = down, 0xB = up (unused, we trigger on any)
+			let keyCode = Int((data1 >> 16) & 0xFF)
+			let keyState = Int((data1 >> 8) & 0xFF)
+
+			// Track keyCode distribution for diagnostics
+			health.trackKeyCode(keyCode)
+
+			// Notify capture callback (for debug window) - always capture NX events
+			DispatchQueue.main.async { [weak self] in
+				self?.onEventCaptured?("NX", keyCode, keyState)
+			}
 
 			// Check if it's brightness
 			// keyCode 2/3 = older Macs, 6 = M4, 7 = some wake/power states
-			if keyCode == nxKeytypeBrightnessUp || keyCode == nxKeytypeBrightnessDown || keyCode == 6 || keyCode == 7 {
+			if keyCode == Int(nxKeytypeBrightnessUp) || keyCode == Int(nxKeytypeBrightnessDown) || keyCode == 6 || keyCode == 7 {
+				health.brightnessEventsReceived += 1
 				debugLog("Brightness event detected (keyCode=\(keyCode))")
 				DispatchQueue.main.async { [weak self] in
 					self?.onBrightnessKeyPressed?()
@@ -287,23 +477,50 @@ class BrightnessKeyMonitor {
 		}
 		eventTap = nil
 		runLoopSource = nil
+		health.isRunning = false
+	}
+
+	/// Restart the event tap (stop and start again)
+	/// Returns true if restart was successful
+	@discardableResult
+	func restart() -> Bool {
+		debugLog("Restarting event tap...")
+		stop()
+		// Brief pause to ensure clean teardown
+		Thread.sleep(forTimeInterval: 0.1)
+		let result = start()
+		debugLog("Event tap restart: \(result ? "success" : "failed")")
+		return result
 	}
 }
 
 // MARK: - Brightness Sync Manager (wrapper around Core with debug logging)
 
-class AppBrightnessSyncManager {
-	// Lazy-loaded keyboard controller - only initialized on first sync
-	private lazy var keyboard: KeyboardBrightnessController = .init()
-	private lazy var displayProvider: DisplayBrightnessProvider = .init()
+class AppBrightnessSyncManager: BrightnessSyncProtocol {
+	private let keyboard: KeyboardBrightnessController
+	private let displayProvider: DisplayBrightnessProvider
 	private lazy var coreSyncManager: TwinKleyCore.BrightnessSyncManager = .init(
 		brightnessProvider: displayProvider,
 		brightnessController: keyboard
 	)
 
+	// Sync history for diagnostics (keep last 100 records)
+	private(set) var syncHistory: [SyncRecord] = []
+	private let maxHistoryCount = 100
+	var syncHistoryEnabled = false
+
+	init(displayProvider: DisplayBrightnessProvider, keyboardController: KeyboardBrightnessController) {
+		self.displayProvider = displayProvider
+		self.keyboard = keyboardController
+	}
+
 	/// Sync keyboard brightness to display brightness with debug logging
-	/// - Parameter gamma: Gamma correction exponent (1.0 = linear, >1.0 = power curve)
-	func sync(gamma: Double = 1.0) {
+	/// - Parameters:
+	///   - gamma: Gamma correction exponent (1.0 = linear, >1.0 = power curve)
+	///   - trigger: What triggered this sync (for history logging)
+	func sync(gamma: Double = 1.0, trigger: SyncTrigger = .manual) {
+		let startTime = Date()
+
 		// Get display brightness for logging
 		let displayBrightness = displayProvider.getDisplayBrightness()
 		let previousBrightness = coreSyncManager.lastSyncedBrightness
@@ -311,11 +528,42 @@ class AppBrightnessSyncManager {
 		// Perform sync
 		let result = coreSyncManager.sync(gamma: gamma)
 
+		let durationMs = Int(Date().timeIntervalSince(startTime) * 1000)
+		let keyboardBrightness = coreSyncManager.lastSyncedBrightness
+		let changeNeeded = keyboardBrightness != previousBrightness
+
 		// Log if brightness changed
-		if let displayBrightness, coreSyncManager.lastSyncedBrightness != previousBrightness {
-			let keyboardBrightness = coreSyncManager.lastSyncedBrightness
+		if let displayBrightness, changeNeeded {
 			debugLog("Sync: display=\(String(format: "%.4f", displayBrightness)) -> keyboard=\(String(format: "%.4f", keyboardBrightness)) (γ=\(String(format: "%.1f", gamma))) \(result ? "OK" : "FAILED")")
 		}
+
+		// Record to history if enabled
+		if syncHistoryEnabled, let displayBrightness {
+			let record = SyncRecord(
+				timestamp: startTime,
+				trigger: trigger,
+				displayBrightness: displayBrightness,
+				keyboardBrightness: keyboardBrightness,
+				gamma: gamma,
+				success: result,
+				durationMs: durationMs,
+				changeNeeded: changeNeeded
+			)
+			syncHistory.append(record)
+
+			// Trim history if too long
+			if syncHistory.count > maxHistoryCount {
+				syncHistory.removeFirst(syncHistory.count - maxHistoryCount)
+			}
+
+			if debugOptions.logSyncHistory {
+				debugLog("SyncHistory: \(trigger.rawValue) display=\(String(format: "%.1f%%", displayBrightness * 100)) -> kb=\(String(format: "%.1f%%", keyboardBrightness * 100)) \(changeNeeded ? "changed" : "no-change") \(durationMs)ms")
+			}
+		}
+	}
+
+	func clearHistory() {
+		syncHistory.removeAll()
 	}
 
 	var isReady: Bool {
@@ -326,82 +574,47 @@ class AppBrightnessSyncManager {
 // MARK: - Menu Bar Icon
 
 private func createMenuBarIcon() -> NSImage {
-	let size: CGFloat = 18
-	let image = NSImage(size: NSSize(width: size, height: size))
+	// Load pre-rendered PDF from bundle (smaller than inline drawing code)
+	let resourcePath = Bundle.main.resourcePath ?? ""
+	let iconPath = "\(resourcePath)/MenuBarIcon.pdf"
 
-	image.lockFocus()
-	let context = NSGraphicsContext.current!.cgContext
-
-	// Use black color - template mode will handle light/dark
-	context.setFillColor(NSColor.black.cgColor)
-	context.setStrokeColor(NSColor.black.cgColor)
-
-	// Sun on left half (centered at 35%)
-	let sunCenterX = size * 0.35
-	let sunCenterY = size * 0.5
-	let sunRadius = size * 0.14
-
-	// Sun body
-	context.addArc(
-		center: CGPoint(x: sunCenterX, y: sunCenterY),
-		radius: sunRadius,
-		startAngle: 0,
-		endAngle: .pi * 2,
-		clockwise: true
-	)
-	context.fillPath()
-
-	// Sun rays
-	context.setLineWidth(size / 14)
-	context.setLineCap(.round)
-	let rayLength = size * 0.12
-	let rayStart = sunRadius + size / 22
-
-	for i in 0..<8 {
-		let angle = CGFloat(i) * .pi / 4
-		context.move(to: CGPoint(x: sunCenterX + cos(angle) * rayStart, y: sunCenterY + sin(angle) * rayStart))
-		context.addLine(to: CGPoint(
-			x: sunCenterX + cos(angle) * (rayStart + rayLength),
-			y: sunCenterY + sin(angle) * (rayStart + rayLength)
-		))
+	if let icon = NSImage(contentsOfFile: iconPath) {
+		icon.isTemplate = true
+		return icon
 	}
-	context.strokePath()
 
-	// "K" on right half (centered at 68%)
-	let kCenterX = size * 0.68
-	let kCenterY = size * 0.5
-	let kHeight = size * 0.65
-	let kWidth = size * 0.28
+	// Fallback: minimal placeholder if PDF not found
+	debugLog("Menu bar icon not found at \(iconPath), using fallback")
+	let fallback = NSImage(size: NSSize(width: 18, height: 18))
+	fallback.isTemplate = true
+	return fallback
+}
 
-	context.setLineWidth(size / 9)
-	context.setLineCap(.round)
-	context.setLineJoin(.round)
+// MARK: - Settings Adapter
 
-	// K vertical line
-	let kLeftX = kCenterX - kWidth * 0.3
-	context.move(to: CGPoint(x: kLeftX, y: kCenterY - kHeight / 2))
-	context.addLine(to: CGPoint(x: kLeftX, y: kCenterY + kHeight / 2))
-	context.strokePath()
+/// Adapter to expose local settings via SettingsProtocol for UI windows
+private class SettingsProtocolAdapter: SettingsProtocol {
+	private let getSettings: () -> Settings
+	private let setSettings: (Settings) -> Void
 
-	// K diagonal lines
-	let kRightX = kCenterX + kWidth * 0.5
-	context.move(to: CGPoint(x: kRightX, y: kCenterY - kHeight / 2))
-	context.addLine(to: CGPoint(x: kLeftX, y: kCenterY))
-	context.addLine(to: CGPoint(x: kRightX, y: kCenterY + kHeight / 2))
-	context.strokePath()
+	init(getSettings: @escaping () -> Settings, setSettings: @escaping (Settings) -> Void) {
+		self.getSettings = getSettings
+		self.setSettings = setSettings
+	}
 
-	image.unlockFocus()
+	var settings: Settings { getSettings() }
 
-	// Set as template for automatic light/dark mode support
-	image.isTemplate = true
-	return image
+	func update(_ block: (inout Settings) -> Void) {
+		var s = getSettings()
+		block(&s)
+		setSettings(s)
+	}
 }
 
 // MARK: - App Delegate
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 	private var statusItem: NSStatusItem!
-	private let syncManager = AppBrightnessSyncManager()
 	private var keyMonitor: BrightnessKeyMonitor?
 	private var powerMonitor: PowerStateMonitor?
 	private var currentPowerState = PowerState.current()
@@ -409,7 +622,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private var timedSyncMenuItem: NSMenuItem!
 	private var fallbackTimer: Timer?
 
-	private let settingsManager = SettingsManager()
+	// Settings loaded at startup via minimal SettingsLoader (no full SettingsManager needed in main binary)
+	private var settings = SettingsLoader.load()
+	private func saveSettings() { SettingsLoader.save(settings) }
+
+	// Adapter to expose settings via SettingsProtocol for UI windows
+	private lazy var settingsAdapter: SettingsProtocolAdapter = SettingsProtocolAdapter(
+		getSettings: { [weak self] in self?.settings ?? Settings.default },
+		setSettings: { [weak self] newSettings in
+			self?.settings = newSettings
+			self?.saveSettings()
+		}
+	)
+
+	// Lazy-loaded brightness controllers - shared between syncManager and debug window
+	private lazy var displayProvider: DisplayBrightnessProvider = .init()
+	private lazy var keyboardController: KeyboardBrightnessController = .init()
+	private lazy var syncManager: AppBrightnessSyncManager = .init(
+		displayProvider: displayProvider,
+		keyboardController: keyboardController
+	)
 
 	#if !APP_STORE
 	// Lazy-load Sparkle only when needed (saves ~2-3 MB during normal operation)
@@ -423,7 +655,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	}()
 	#endif
 
-	private var preferencesWindow: PreferencesWindowController?
+	private var preferencesWindow: PreferencesWindowProtocol?
+	private var debugWindow: DebugWindowProtocol?
+	private var aboutWindow: AboutWindowProtocol?
 
 	// Debouncer for keypress sync - coalesces rapid key presses into fewer syncs
 	private let keypressSyncDebouncer = Debouncer(delay: 0.3)
@@ -432,93 +666,96 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		// Note: Sparkle is now lazy-loaded only when user checks for updates or opens Preferences
 		// This saves ~2-3 MB of memory during normal brightness sync operation
 
+		// Enable sync history if requested via CLI
+		if debugOptions.logSyncHistory {
+			syncManager.syncHistoryEnabled = true
+		}
+
 		setupStatusItem()
 		checkFirstLaunch()
 		checkAccessibilityPermission()
 		setupBrightnessMonitor()
 		setupObservers()
-		syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+		syncManager.sync(gamma: settings.brightnessGamma, trigger: .startup)
 	}
 
 	private func checkFirstLaunch() {
-		if !settingsManager.settings.hasLaunchedBefore {
-			settingsManager.update { settings in
-				settings.hasLaunchedBefore = true
-			}
+		if !settings.hasLaunchedBefore {
+			settings.hasLaunchedBefore = true
+			saveSettings()
 			showWelcomeDialog()
 		}
 	}
 
 	private func showWelcomeDialog() {
-		let alert = NSAlert()
-		alert.messageText = "Welcome to \(AppInfo.shortName)!"
-		alert.informativeText = """
-		TwinKley automatically syncs your keyboard backlight to match your display brightness.
-
-		🔒 Privacy First: Zero data collection, everything runs locally
-		⚡️ Live Sync: Instant response to brightness changes
-		🔋 Battery Smart: Optional power-saving modes
-
-		To get started:
-		1. Grant Accessibility permission (required)
-		2. Adjust brightness - your keyboard will follow!
-
-		Settings are in the menu bar icon.
-		"""
-		alert.alertStyle = .informational
-		alert.icon = NSApp.applicationIconImage
-		alert.addButton(withTitle: "Grant Permission")
-		alert.addButton(withTitle: "Later")
-
-		let response = alert.runModal()
-		if response == .alertFirstButtonReturn {
-			// User clicked "Grant Permission" - will show accessibility prompt next
-			// The checkAccessibilityPermission() call will handle it
+		// Use UI library for dialog (keeps main binary small)
+		if let loader = getUILoader() {
+			_ = loader.perform(NSSelectorFromString("showWelcomeDialog"))
 		}
+	}
+
+	/// Test if event tap actually works (more reliable than AXIsProcessTrusted)
+	/// AXIsProcessTrusted can return true with stale TCC entries after code signature changes
+	private func testEventTapPermission() -> (apiSaysGranted: Bool, tapWorks: Bool) {
+		let apiSaysGranted = AXIsProcessTrusted()
+
+		// Try to create a minimal test tap - this is the real test
+		let testTap = CGEvent.tapCreate(
+			tap: .cgSessionEventTap,
+			place: .headInsertEventTap,
+			options: .defaultTap,
+			eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
+			callback: { _, _, event, _ in Unmanaged.passUnretained(event) },
+			userInfo: nil
+		)
+
+		let tapWorks = testTap != nil
+
+		// Clean up test tap
+		if let tap = testTap {
+			CFMachPortInvalidate(tap)
+		}
+
+		return (apiSaysGranted, tapWorks)
 	}
 
 	private func checkAccessibilityPermission() {
 		// .defaultTap requires Accessibility permission (not Input Monitoring)
-		let hasPermission = AXIsProcessTrusted()
-		debugLog("Accessibility permission: \(hasPermission)")
-		if !hasPermission {
+		let (apiSaysGranted, tapWorks) = testEventTapPermission()
+
+		debugLog("Accessibility permission: API=\(apiSaysGranted), tapWorks=\(tapWorks)")
+
+		if !tapWorks {
+			if apiSaysGranted {
+				// Stale TCC entry - signature changed but permission wasn't invalidated
+				debugLog("⚠️  Stale accessibility permission detected - need to re-grant")
+			}
 			showAccessibilityPrompt()
 		}
 	}
 
 	private func showAccessibilityPrompt() {
-		let alert = NSAlert()
-		alert.messageText = "Accessibility Permission Required"
-		alert.informativeText = """
-		\(AppInfo.shortName) needs Accessibility permission to detect \
-		brightness key presses and sync your keyboard backlight.
-
-		Without this permission, only timed sync will work.
-
-		Click "Open Settings" and add \(AppInfo.shortName) to the list, \
-		or toggle it off and on if it's already there.
-
-		You may need to restart the app after granting permission.
-		"""
-		alert.alertStyle = .warning
-		alert.icon = NSApp.applicationIconImage
-		alert.addButton(withTitle: "Open Settings")
-		alert.addButton(withTitle: "Later")
-
-		let response = alert.runModal()
-		if response == .alertFirstButtonReturn {
-			// Open System Settings to Accessibility pane
-			if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-				NSWorkspace.shared.open(url)
-			}
+		// Use UI library for dialog (keeps main binary small)
+		if let loader = getUILoader() {
+			_ = loader.perform(NSSelectorFromString("showAccessibilityPrompt"))
 		}
 	}
 
+	private var showBrightnessInMenu = false
+	private var brightnessDisplayTimer: Timer?
+
 	private func setupStatusItem() {
-		statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+		// Use variable length if showing brightness, otherwise square for icon only
+		showBrightnessInMenu = debugOptions.showBrightnessInMenu
+		let length = showBrightnessInMenu ? NSStatusItem.variableLength : NSStatusItem.squareLength
+		statusItem = NSStatusBar.system.statusItem(withLength: length)
 
 		if let button = statusItem.button {
 			button.image = createMenuBarIcon()
+			if showBrightnessInMenu {
+				updateMenuBarBrightness()
+				startBrightnessDisplayTimer()
+			}
 		}
 
 		let menu = NSMenu()
@@ -548,7 +785,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 			keyEquivalent: ""
 		)
 		keypressSyncMenuItem.target = self
-		keypressSyncMenuItem.state = settingsManager.settings.liveSyncEnabled ? .on : .off
+		keypressSyncMenuItem.state = settings.liveSyncEnabled ? .on : .off
 		menu.addItem(keypressSyncMenuItem)
 
 		timedSyncMenuItem = NSMenuItem(
@@ -557,7 +794,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 			keyEquivalent: ""
 		)
 		timedSyncMenuItem.target = self
-		timedSyncMenuItem.state = settingsManager.settings.timedSyncEnabled ? .on : .off
+		timedSyncMenuItem.state = settings.timedSyncEnabled ? .on : .off
 		menu.addItem(timedSyncMenuItem)
 
 		let syncItem = NSMenuItem(title: "Sync Now", action: #selector(syncNow), keyEquivalent: "")
@@ -594,17 +831,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private func setupBrightnessMonitor() {
 		keyMonitor = BrightnessKeyMonitor()
 		keyMonitor?.onBrightnessKeyPressed = { [weak self] in
-			guard let self, settingsManager.settings.liveSyncEnabled else { return }
+			guard let self, settings.liveSyncEnabled else { return }
 			// Small delay to let macOS process the brightness change first
 			// The event tap catches the key BEFORE the brightness actually changes
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
 				guard let self else { return }
-				syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+				syncManager.sync(gamma: settings.brightnessGamma, trigger: .keypress)
+				updateMenuBarBrightness() // Update display immediately
 			}
 			// Debounced final sync after key release (coalesces rapid key presses)
 			keypressSyncDebouncer.debounce { [weak self] in
 				guard let self else { return }
-				syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+				syncManager.sync(gamma: settings.brightnessGamma, trigger: .keypress)
+				updateMenuBarBrightness() // Update display after final sync
+			}
+		}
+
+		// Wire up event capture for debug window
+		keyMonitor?.onEventCaptured = { [weak self] eventType, keyCode, keyState in
+			guard let self else { return }
+			// Only pass to debug window if capture is active
+			if let debugWindow, debugWindow.isCaptureActive {
+				let displayBrightness = displayProvider.getDisplayBrightness() ?? -1
+				let keyboardBrightness = keyboardController.getKeyboardBrightness() ?? -1
+				debugWindow.recordCapturedEvent(
+					eventType: eventType,
+					keyCode: keyCode,
+					keyState: keyState,
+					displayBrightness: displayBrightness,
+					keyboardBrightness: keyboardBrightness
+				)
 			}
 		}
 
@@ -622,13 +878,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		// Don't start if already running
 		guard fallbackTimer == nil else { return }
 
-		let intervalSeconds = settingsManager.settings.timedSyncIntervalSeconds
+		let intervalSeconds = settings.timedSyncIntervalSeconds
 		fallbackTimer = Timer.scheduledTimer(
 			withTimeInterval: intervalSeconds,
 			repeats: true
 		) { [weak self] _ in
 			guard let self else { return }
-			syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+			syncManager.sync(gamma: settings.brightnessGamma, trigger: .timer)
 		}
 		// Allow 10% tolerance for system timer coalescing (better energy efficiency)
 		fallbackTimer?.tolerance = intervalSeconds * 0.1
@@ -643,8 +899,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 	/// Check if timer should be running based on settings and power state
 	private func shouldTimerBeRunning() -> Bool {
-		guard settingsManager.settings.timedSyncEnabled else { return false }
-		let settings = settingsManager.settings
+		guard settings.timedSyncEnabled else { return false }
 		if settings.pauseTimedSyncOnBattery, currentPowerState.isOnBattery { return false }
 		if settings.pauseTimedSyncOnLowBattery, currentPowerState.isLowBattery { return false }
 		return true
@@ -661,16 +916,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		}
 	}
 
+	// MARK: - Menu Bar Brightness Display
+
+	private func updateMenuBarBrightness() {
+		guard showBrightnessInMenu, let button = statusItem.button else { return }
+
+		if let brightness = displayProvider.getDisplayBrightness() {
+			let percent = Int(round(brightness * 100))
+			button.title = " \(percent)%"
+		} else {
+			button.title = " --%"
+		}
+	}
+
+	private func startBrightnessDisplayTimer() {
+		// Update every 2 seconds to keep display current
+		brightnessDisplayTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+			self?.updateMenuBarBrightness()
+		}
+		brightnessDisplayTimer?.tolerance = 0.5
+	}
+
+	private func stopBrightnessDisplayTimer() {
+		brightnessDisplayTimer?.invalidate()
+		brightnessDisplayTimer = nil
+	}
+
 	@objc
 	private func toggleLiveSync() {
-		settingsManager.update { $0.liveSyncEnabled.toggle() }
-		keypressSyncMenuItem.state = settingsManager.settings.liveSyncEnabled ? .on : .off
+		settings.liveSyncEnabled.toggle()
+		saveSettings()
+		keypressSyncMenuItem.state = settings.liveSyncEnabled ? .on : .off
 	}
 
 	@objc
 	private func toggleTimedSync() {
-		settingsManager.update { $0.timedSyncEnabled.toggle() }
-		timedSyncMenuItem.state = settingsManager.settings.timedSyncEnabled ? .on : .off
+		settings.timedSyncEnabled.toggle()
+		saveSettings()
+		timedSyncMenuItem.state = settings.timedSyncEnabled ? .on : .off
 		updateTimerState()
 	}
 
@@ -687,7 +970,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		if flags.contains(.setModeFlag) || flags.contains(.setMainFlag) {
 			debugLog("Display reconfiguration detected")
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-				delegate.syncManager.sync(gamma: delegate.settingsManager.settings.brightnessGamma)
+				delegate.syncManager.sync(gamma: delegate.settings.brightnessGamma, trigger: .displayChange)
 			}
 		}
 	}
@@ -734,7 +1017,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 			updateTimerState()
 			// Sync when plugging in (in case we paused on battery)
 			if wasOnBattery, !state.isOnBattery {
-				syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+				syncManager.sync(gamma: settings.brightnessGamma, trigger: .wake)
 			}
 		}
 		powerMonitor?.start()
@@ -758,142 +1041,111 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private func onWake() {
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
 			guard let self else { return }
-			syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+			syncManager.sync(gamma: settings.brightnessGamma, trigger: .wake)
 		}
 	}
 
 	@objc
 	private func onSettingsChanged() {
 		// Update menu item states
-		keypressSyncMenuItem.state = settingsManager.settings.liveSyncEnabled ? .on : .off
-		timedSyncMenuItem.state = settingsManager.settings.timedSyncEnabled ? .on : .off
+		keypressSyncMenuItem.state = settings.liveSyncEnabled ? .on : .off
+		timedSyncMenuItem.state = settings.timedSyncEnabled ? .on : .off
 
 		// Update timer state (start/stop/restart as needed)
 		updateTimerState()
 
 		// Sync with new gamma value
-		syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+		syncManager.sync(gamma: settings.brightnessGamma, trigger: .manual)
 	}
 
 	@objc
 	private func syncNow() {
-		syncManager.sync(gamma: settingsManager.settings.brightnessGamma)
+		syncManager.sync(gamma: settings.brightnessGamma, trigger: .manual)
 	}
 
 	@objc
 	private func showAbout() {
-		let alert = NSAlert()
-		alert.messageText = AppInfo.name
-		alert.informativeText = """
-		Version \(AppInfo.version)
+		guard let loader = getUILoader(),
+		      let window = loader.perform(NSSelectorFromString("createAboutWindow"))?.takeUnretainedValue()
+		else { return }
 
-		Syncs keyboard backlight brightness
-		to match display brightness.
-
-		© 2024 GPL-3.0 License
-		"""
-		alert.alertStyle = .informational
-		alert.icon = NSApp.applicationIconImage
-		alert.addButton(withTitle: "OK")
-
-		// Create clickable URL link
-		let linkField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 20))
-		linkField.isEditable = false
-		linkField.isBordered = false
-		linkField.backgroundColor = .clear
-		linkField.allowsEditingTextAttributes = true
-		linkField.isSelectable = true
-		linkField.alignment = .center
-
-		let linkString = NSMutableAttributedString(string: AppInfo.githubURL)
-		let fullRange = NSRange(location: 0, length: linkString.length)
-		linkString.addAttribute(.link, value: AppInfo.githubURL, range: fullRange)
-		linkString.addAttribute(.font, value: NSFont.systemFont(ofSize: 12), range: fullRange)
-		linkField.attributedStringValue = linkString
-
-		alert.accessoryView = linkField
-
-		// Find and make the alert's icon double-clickable for debug toggle
-		// Traverse view hierarchy to find the NSImageView (the icon)
-		let window = alert.window
-		if let iconView = findIconImageView(in: window.contentView) {
-			let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(iconDoubleClicked))
-			clickGesture.numberOfClicksRequired = 2
-			iconView.addGestureRecognizer(clickGesture)
-		}
-
-		alert.runModal()
-	}
-
-	/// Recursively find the NSImageView in the alert that contains the icon
-	private func findIconImageView(in view: NSView?) -> NSImageView? {
-		guard let view else { return nil }
-
-		// Check if this view is an NSImageView with the app icon
-		if let imageView = view as? NSImageView,
-		   imageView.image === NSApp.applicationIconImage
-		{
-			return imageView
-		}
-
-		// Recursively search subviews
-		for subview in view.subviews {
-			if let found = findIconImageView(in: subview) {
-				return found
+		aboutWindow = window as? AboutWindowProtocol
+		if let aboutCtrl = window as? NSObject {
+			let setHandlerSel = NSSelectorFromString("setDebugToggleHandler:")
+			if aboutCtrl.responds(to: setHandlerSel) {
+				let handler: @convention(block) () -> Void = { [weak self] in
+					NSApp.stopModal()
+					DispatchQueue.main.async { self?.showDebugWindow() }
+				}
+				aboutCtrl.perform(setHandlerSel, with: handler)
 			}
 		}
-
-		return nil
+		aboutWindow?.showWindow()
 	}
 
-	@objc
-	private func iconDoubleClicked() {
-		// Don't allow disabling debug mode if it was enabled via CLI
-		if debugEnabledViaCLI, debugEnabled {
-			let alert = NSAlert()
-			alert.messageText = "Debug Mode"
-			alert.informativeText = "Debug mode was enabled via --debug flag and cannot be disabled at runtime."
-			alert.alertStyle = .informational
-			alert.addButton(withTitle: "OK")
-			alert.runModal()
-			return
+	private func showDebugWindow() {
+		if debugWindow == nil {
+			guard let loader = getUILoader(),
+			      let window = loader.perform(NSSelectorFromString("createDebugWindow"))?.takeUnretainedValue()
+			else { return }
+
+			debugWindow = window as? DebugWindowProtocol
+
+			let context = UIContext()
+			context.brightnessMonitor = keyMonitor
+			context.displayProvider = displayProvider
+			context.keyboardController = keyboardController
+			context.syncManager = syncManager
+			context.settingsManager = settingsAdapter
+			context.onDebugModeChanged = { enabled in
+				debugEnabled = enabled
+			}
+			context.onSyncHistoryToggled = { [weak self] enabled in
+				self?.syncManager.syncHistoryEnabled = enabled
+			}
+			debugWindow?.setContext(context)
 		}
-
-		// Toggle debug mode
-		debugEnabled.toggle()
-
-		// Log the toggle
-		debugLog("Debug mode \(debugEnabled ? "enabled" : "disabled") via UI")
-
-		// Show confirmation alert
-		let alert = NSAlert()
-		alert.messageText = "Debug Mode \(debugEnabled ? "Enabled" : "Disabled")"
-		alert.informativeText = debugEnabled
-			? "Debug logs will be written to ~/.twinkley-debug.log\n\nDouble-click the icon again to disable."
-			: "Debug logging has been disabled."
-		alert.alertStyle = .informational
-		alert.addButton(withTitle: "OK")
-		alert.runModal()
+		debugWindow?.isDebugModeEnabled = debugEnabled
+		debugWindow?.showWindow()
+		NSApp.activate(ignoringOtherApps: true)
 	}
 
 	@objc
 	private func showPreferences() {
 		if preferencesWindow == nil {
+			guard let loader = getUILoader(),
+			      let window = loader.perform(NSSelectorFromString("createPreferencesWindow"))?.takeUnretainedValue()
+			else { return }
+
+			preferencesWindow = window as? PreferencesWindowProtocol
+
+			let context = UIContext()
+			context.settingsManager = settingsAdapter
+			context.onSettingsChanged = {
+				NotificationCenter.default.post(name: .settingsChanged, object: nil)
+			}
 			#if !APP_STORE
-			preferencesWindow = PreferencesWindowController(
-				settingsManager: settingsManager,
-				updaterController: updaterController
-			)
-			#else
-			preferencesWindow = PreferencesWindowController(settingsManager: settingsManager)
+			context.getAutoUpdateEnabled = { [weak self] in
+				self?.updaterController.updater.automaticallyChecksForUpdates ?? false
+			}
+			context.setAutoUpdateEnabled = { [weak self] enabled in
+				self?.updaterController.updater.automaticallyChecksForUpdates = enabled
+			}
 			#endif
+			preferencesWindow?.setContext(context)
 		}
-		preferencesWindow?.showWindow(nil)
+		preferencesWindow?.showWindow()
 		NSApp.activate(ignoringOtherApps: true)
 	}
 
 	@objc
 	private func openHelp() {
+		// Use UI library if available for consistent behavior
+		if let loader = getUILoader() {
+			_ = loader.perform(NSSelectorFromString("openHelp"))
+			return
+		}
+		// Fallback: open directly
 		if let url = URL(string: "\(AppInfo.githubURL)#readme") {
 			NSWorkspace.shared.open(url)
 		}
@@ -902,7 +1154,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	#if !APP_STORE
 	@objc
 	private func checkForUpdates() {
-		updaterController.updater.checkForUpdates()
+		// Show privacy notice on first update check (dialog in UI library)
+		if !settings.hasAcknowledgedUpdatePrivacy {
+			if let loader = getUILoader() {
+				let result = loader.perform(NSSelectorFromString("showUpdatePrivacyNotice"))
+				let shouldProceed = result?.toOpaque() != nil
+				if shouldProceed {
+					settings.hasAcknowledgedUpdatePrivacy = true
+					saveSettings()
+					updaterController.updater.checkForUpdates()
+				}
+			}
+		} else {
+			updaterController.updater.checkForUpdates()
+		}
 	}
 	#endif
 
@@ -912,6 +1177,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		keyMonitor?.stop()
 		powerMonitor?.stop()
 		stopTimedSync()
+		stopBrightnessDisplayTimer()
 		keypressSyncDebouncer.cancel()
 
 		// Unregister callbacks
@@ -925,7 +1191,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	}
 }
 
+// Show privacy warning for capture mode
+private func showCapturePrivacyWarning() {
+	guard debugOptions.captureKeypresses else { return }
+
+	// Use UI library if available
+	if let loader = getUILoader() {
+		_ = loader.perform(
+			NSSelectorFromString("showCapturePrivacyWarningWithDuration:"),
+			with: debugOptions.captureDuration as NSNumber
+		)
+		return
+	}
+
+	// Fallback: print warning inline
+	print("⚠️  Keypress capture enabled (\(debugOptions.captureDuration)s). DO NOT type passwords!")
+	sleep(3)
+}
+
+// Notification for settings changes
+extension Notification.Name {
+	static let settingsChanged = Notification.Name("settingsChanged")
+}
+
 // MARK: - Main
+
+// Handle CLI-only commands before starting GUI
+handleHelpIfNeeded()
+_ = handleHealthCheck()
+showCapturePrivacyWarning()
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
