@@ -33,7 +33,7 @@ public struct Settings: Codable, Equatable {
 
 	public static let `default` = Settings(
 		liveSyncEnabled: true,
-		timedSyncEnabled: true,
+		timedSyncEnabled: false, // Off by default - live sync is event-driven (zero polling)
 		timedSyncIntervalMs: intervalDefault,
 		pauseTimedSyncOnBattery: false,
 		pauseTimedSyncOnLowBattery: true,
@@ -43,7 +43,7 @@ public struct Settings: Codable, Equatable {
 
 	public init(
 		liveSyncEnabled: Bool = true,
-		timedSyncEnabled: Bool = true,
+		timedSyncEnabled: Bool = false, // Off by default for energy efficiency
 		timedSyncIntervalMs: Int = intervalDefault,
 		pauseTimedSyncOnBattery: Bool = false,
 		pauseTimedSyncOnLowBattery: Bool = true,

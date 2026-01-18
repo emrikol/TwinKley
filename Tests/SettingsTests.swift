@@ -8,7 +8,7 @@ final class SettingsTests: XCTestCase {
 		let settings = Settings.default
 
 		XCTAssertTrue(settings.liveSyncEnabled)
-		XCTAssertTrue(settings.timedSyncEnabled)
+		XCTAssertFalse(settings.timedSyncEnabled) // Off by default for energy efficiency
 		XCTAssertEqual(settings.timedSyncIntervalMs, 10_000)
 		XCTAssertFalse(settings.pauseTimedSyncOnBattery)
 		XCTAssertTrue(settings.pauseTimedSyncOnLowBattery)
