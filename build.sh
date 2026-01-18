@@ -191,6 +191,9 @@ echo "  Binary size: $BINARY_SIZE (stripped)"
 if [ -d ".build/release/Sparkle.framework" ]; then
 	echo "  Copying Sparkle framework..."
 	cp -R ".build/release/Sparkle.framework" "$APP_DIR/Contents/Frameworks/"
+
+	# Add rpath so binary can find Sparkle framework
+	install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_DIR/Contents/MacOS/$APP_NAME" 2>/dev/null || true
 fi
 
 # Signing happens after all resources are added (see Step 10b below)
