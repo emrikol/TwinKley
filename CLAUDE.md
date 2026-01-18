@@ -4,6 +4,45 @@ Project conventions and context for AI assistants.
 
 ---
 
+## Core Principles (CRITICAL)
+
+**These principles guide EVERY design decision. They are non-negotiable.**
+
+### 1. Energy & CPU Efficiency First
+- **Event-driven architecture**: Wake only when needed (notifications, callbacks, event taps)
+- **Zero polling** where events exist (brightness keys generate events, use them!)
+- **Lazy loading**: Load frameworks/resources only when actually used
+- **Debounce rapid events**: Coalesce multiple events to reduce CPU wake-ups
+- **Battery awareness**: Degrade gracefully on battery power
+
+**Rule**: Before adding any timer, polling loop, or background work, prove no event-driven alternative exists.
+
+### 2. Memory Efficiency
+- **Minimal footprint**: Target ~11 MB resident memory
+- **Dynamic loading**: Use `dlopen()` for optional frameworks (like Sparkle)
+- **No memory leaks**: Use `passUnretained` for callbacks we don't own
+- **Clean up resources**: Invalidate taps, remove observers, stop timers on quit
+
+**Rule**: Every MB of memory matters. Question every framework, every cache, every retained object.
+
+### 3. Privacy First
+- **Zero data collection**: No analytics, telemetry, or crash reports
+- **Local-only storage**: Settings in `~/.twinkley.json`, logs in `~/.twinkley-debug.log`
+- **Minimal permissions**: Only Accessibility (required for brightness detection)
+- **Transparent updates**: Sparkle checks disclose what's transmitted (version, OS, arch only)
+
+**Rule**: If it touches the network or reads anything beyond brightness/power state, question it.
+
+### 4. Simplicity
+- **Single-purpose utility**: Sync keyboard brightness to display brightness. That's it.
+- **No feature creep**: Every feature request must justify its existence
+- **Minimal UI**: Menu bar icon, simple preferences, done
+- **Small codebase**: One app file, core library for testable logic
+
+**Rule**: The best code is no code. The best feature is no feature.
+
+---
+
 ## Naming Convention
 
 The app name uses artistic spelling with brackets around the 'l':
