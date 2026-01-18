@@ -34,7 +34,7 @@ APP_DIR="$HOME/Applications/$APP_NAME.app"
 BINARY="$APP_DIR/Contents/MacOS/$APP_NAME"
 REPORT_FILE="/tmp/twinkley-audit-report.txt"
 
-# Rebuild if requested
+# Rebuild if requested (build.sh handles clean for non-fast builds)
 if $DO_REBUILD; then
     echo "▶ Rebuilding app..."
     ./build.sh > /dev/null 2>&1
@@ -113,9 +113,25 @@ echo "  Strip status:    $STRIP_STATUS"
 ARCH_INFO=$(file "$BINARY" | sed 's/.*: //')
 echo "  Architecture:    $ARCH_INFO"
 
-# Symbol count
+# Symbol count and types
 SYMBOL_COUNT=$(nm "$BINARY" 2>/dev/null | wc -l | tr -d ' ')
-echo "  Symbols:         $SYMBOL_COUNT"
+EXPORTED_SYMBOLS=$(nm -gU "$BINARY" 2>/dev/null | wc -l | tr -d ' ')
+echo "  Symbols:         $SYMBOL_COUNT total, $EXPORTED_SYMBOLS exported"
+
+# Symbol types breakdown
+echo ""
+echo "  Exported symbol types:"
+SYMBOL_TYPES=$(nm -gU "$BINARY" 2>/dev/null | awk '{print $2}' | sort | uniq -c | sort -rn | head -5)
+echo "$SYMBOL_TYPES" | while read count type; do
+    case $type in
+        T) desc="text (functions)" ;;
+        S) desc="section (constants/metadata)" ;;
+        D) desc="data" ;;
+        U) desc="undefined (external)" ;;
+        *) desc="other" ;;
+    esac
+    printf "    %4d %s - %s\n" "$count" "$type" "$desc"
+done
 
 # Segment breakdown - dynamically extract all segments (skip PAGEZERO - it's virtual)
 echo ""
@@ -133,23 +149,56 @@ size -m "$BINARY" | awk '
         }
     }'
 
-# Test -Osize vs regular (if source available)
+# Object file sizes (shows which source files contribute most to binary size)
+echo ""
+echo "  Largest object files (all targets):"
+# Use glob pattern to find .o files (avoids find/fd alias issues)
+OBJ_FILES=""
+for f in .build/release/*.build/*.o; do
+    [ -f "$f" ] && OBJ_FILES="$OBJ_FILES$(wc -c < "$f") $f"$'\n'
+done
+OBJ_FILES=$(echo "$OBJ_FILES" | sort -rn | head -8)
+if [ -n "$OBJ_FILES" ]; then
+    echo "$OBJ_FILES" | while read size file; do
+        [ -z "$size" ] && continue
+        # Get parent directory name to show which target
+        parent=$(basename "$(dirname "$file")" | sed 's/\.build$//')
+        filename=$(basename "$file")
+        size_kb=$((size / 1024))
+        printf "    %4dKB  %-25s (%s)\n" "$size_kb" "$filename" "$parent"
+    done
+else
+    echo "    (object files not found - run swift build -c release first)"
+fi
+
+# Source code breakdown by section
+MAIN_SWIFT="Sources/App/main.swift"
+if [ -f "$MAIN_SWIFT" ]; then
+    echo ""
+    echo "  Main binary code breakdown:"
+    awk '
+    BEGIN { section = "Header"; start = 1 }
+    /^\/\/ MARK: - / {
+        if (NR > 1) printf "    %4d lines  %s\n", NR - start, section
+        section = $0
+        sub(/.*MARK: - /, "", section)
+        start = NR
+    }
+    END { printf "    %4d lines  %s\n", NR - start + 1, section }
+    ' "$MAIN_SWIFT" | sort -rn | head -8
+fi
+
+# Check build optimization settings
 if [ -f "Package.swift" ]; then
     echo ""
-    echo "  Build optimization comparison:"
-    REGULAR_SIZE=$UNSTRIPPED_SIZE_KB
-    # Quick test of -Osize
-    swift build -c release -Xswiftc -Osize > /dev/null 2>&1 || true
-    OSIZE_SIZE=$(wc -c < ".build/release/$APP_NAME" 2>/dev/null | tr -d ' ' || echo "0")
-    OSIZE_SIZE_KB=$((OSIZE_SIZE / 1024))
-    # Restore regular build
-    swift build -c release > /dev/null 2>&1 || true
-    echo "    Regular -O:    ${REGULAR_SIZE}KB"
-    echo "    With -Osize:   ${OSIZE_SIZE_KB}KB"
-    if [ "$OSIZE_SIZE_KB" -gt "$REGULAR_SIZE" ]; then
-        echo "    Result:        Regular is smaller (using regular)"
+    echo "  Build optimization settings:"
+    if grep -q "\-Osize" Package.swift; then
+        echo "    ✓ -Osize enabled (optimize for size)"
     else
-        echo "    Result:        -Osize is smaller"
+        echo "    ○ Using default -O (optimize for speed)"
+    fi
+    if grep -q "disable-reflection-metadata" Package.swift; then
+        echo "    ✓ Reflection metadata disabled"
     fi
 fi
 
@@ -167,6 +216,20 @@ SEGMENT_TABLE=$(size -m "$BINARY" | awk '
         }
     }')
 
+# Capture object file data for report (use glob to avoid find/fd alias issues)
+OBJ_TABLE=""
+OBJ_DATA=""
+for f in .build/release/*.build/*.o; do
+    [ -f "$f" ] && OBJ_DATA="$OBJ_DATA$(wc -c < "$f") $f"$'\n'
+done
+OBJ_TABLE=$(echo "$OBJ_DATA" | sort -rn | head -8 | while read size file; do
+    [ -z "$size" ] && continue
+    parent=$(basename "$(dirname "$file")" | sed 's/\.build$//')
+    filename=$(basename "$file")
+    size_kb=$((size / 1024))
+    echo "| $filename | ${size_kb}KB | $parent |"
+done)
+
 {
     echo "## 2. Binary Analysis"
     echo ""
@@ -176,7 +239,23 @@ SEGMENT_TABLE=$(size -m "$BINARY" | awk '
     [ "$UNSTRIPPED_SIZE" -gt 0 ] && echo "| Unstripped Size | ${UNSTRIPPED_SIZE_KB}KB |"
     [ "$UNSTRIPPED_SIZE" -gt 0 ] && echo "| Strip Savings | ${SAVINGS}% |"
     echo "| Architecture | arm64 |"
-    echo "| Symbol Count | $SYMBOL_COUNT |"
+    echo "| Total Symbols | $SYMBOL_COUNT |"
+    echo "| Exported Symbols | $EXPORTED_SYMBOLS |"
+    echo ""
+    echo "### Exported Symbol Types"
+    echo ""
+    echo "| Count | Type | Description |"
+    echo "|-------|------|-------------|"
+    nm -gU "$BINARY" 2>/dev/null | awk '{print $2}' | sort | uniq -c | sort -rn | head -5 | while read count type; do
+        case $type in
+            T) desc="text (functions)" ;;
+            S) desc="section (constants/metadata)" ;;
+            D) desc="data" ;;
+            U) desc="undefined (external)" ;;
+            *) desc="other" ;;
+        esac
+        echo "| $count | $type | $desc |"
+    done
     echo ""
     echo "### Segment Breakdown"
     echo ""
@@ -184,6 +263,32 @@ SEGMENT_TABLE=$(size -m "$BINARY" | awk '
     echo "|---------|------|"
     echo "$SEGMENT_TABLE"
     echo ""
+    if [ -n "$OBJ_TABLE" ]; then
+        echo "### Largest Object Files"
+        echo ""
+        echo "| File | Size | Target |"
+        echo "|------|------|--------|"
+        echo "$OBJ_TABLE"
+        echo ""
+    fi
+    # Add source code breakdown
+    if [ -f "$MAIN_SWIFT" ]; then
+        echo "### Main Binary Code Breakdown"
+        echo ""
+        echo "| Lines | Section |"
+        echo "|-------|---------|"
+        awk '
+        BEGIN { section = "Header"; start = 1 }
+        /^\/\/ MARK: - / {
+            if (NR > 1) printf "| %d | %s |\n", NR - start, section
+            section = $0
+            sub(/.*MARK: - /, "", section)
+            start = NR
+        }
+        END { printf "| %d | %s |\n", NR - start + 1, section }
+        ' "$MAIN_SWIFT" | sort -t'|' -k2 -rn | head -8
+        echo ""
+    fi
 } >> "$REPORT_FILE"
 
 # ══════════════════════════════════════════════════════════════════
