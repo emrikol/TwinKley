@@ -1,0 +1,14 @@
+#!/bin/bash
+# Pre-commit hook to prevent NOTES.md from being committed
+
+if git diff --cached --name-only | grep -q "^NOTES\.md$"; then
+    echo "❌ ERROR: NOTES.md is for local debugging only and must never be committed!"
+    echo ""
+    echo "NOTES.md contains local research and debugging notes."
+    echo "It should remain in .gitignore and stay local."
+    echo ""
+    echo "To unstage: git restore --staged NOTES.md"
+    exit 1
+fi
+
+exit 0

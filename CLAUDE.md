@@ -226,11 +226,13 @@ swift scripts/set_brightness.swift 0.5   # Set to 50%
 
 | File | Purpose |
 |------|---------|
-| `NOTES.md` | Technical research, what works/doesn't, performance data |
+| `NOTES.md` | **LOCAL ONLY** - Technical research, debugging notes (never commit to Git!) |
 | `CONTRIBUTING.md` | Development setup, code style, testing guide |
 | `DISTRIBUTION-NOTES.md` | App Store/GitHub release guidance |
 | `build.sh` | Builds app bundle with icon optimization |
 | `audit.sh` | Pre-release quality checks |
+
+**IMPORTANT: NOTES.md is for local debugging and research only. It is gitignored and protected by a pre-commit hook. Never commit it to the repository.**
 
 ---
 
@@ -306,6 +308,17 @@ Or use `./build.sh -r` to reset permissions and open System Settings.
 4. **Don't use passRetained for events** - Memory leak
 5. **Don't remove the fallback timer** - It's necessary (no brightness notifications exist)
 6. **Don't use "TwinKley" in user-facing text** - Use "TwinK[l]ey"
+7. **Don't commit NOTES.md to Git** - It's local-only research notes (gitignored + pre-commit hook protection)
+
+### Git Hook Setup
+
+Install the pre-commit hook to prevent accidentally committing NOTES.md:
+```bash
+cp hooks/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+This adds an extra safety layer beyond .gitignore.
 
 ---
 
