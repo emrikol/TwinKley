@@ -60,6 +60,7 @@ class PreferencesWindowController: NSWindowController {
 	}
 	#endif
 
+	@available(*, unavailable)
 	required init?(coder: NSCoder) {
 		fatalError("init(coder:) has not been implemented")
 	}
@@ -118,7 +119,7 @@ class PreferencesWindowController: NSWindowController {
 
 		let liveSyncHelp = NSTextField(wrappingLabelWithString:
 			"Monitors brightness key presses, Control Center slider, and Touch Bar. " +
-			"Instant response, no polling."
+				"Instant response, no polling."
 		)
 		liveSyncHelp.font = NSFont.systemFont(ofSize: 11)
 		liveSyncHelp.textColor = .secondaryLabelColor
@@ -164,7 +165,7 @@ class PreferencesWindowController: NSWindowController {
 
 		let timedSyncHelp = NSTextField(wrappingLabelWithString:
 			"Catches rare cases where apps change brightness without notifying the system. " +
-			"Can be disabled if Live Sync works perfectly."
+				"Can be disabled if Live Sync works perfectly."
 		)
 		timedSyncHelp.font = NSFont.systemFont(ofSize: 11)
 		timedSyncHelp.textColor = .secondaryLabelColor
@@ -235,11 +236,11 @@ class PreferencesWindowController: NSWindowController {
 
 		let gammaHelp = NSTextField(wrappingLabelWithString:
 			"Controls how keyboard brightness responds to display brightness. " +
-			"Higher values dim the keyboard more at low display levels.\n\n" +
-			"• 1.0 = Linear (keyboard matches display 1:1)\n" +
-			"• 1.5 = Mild correction (default, recommended)\n" +
-			"• 2.0 = Moderate correction\n" +
-			"• 2.2 = sRGB-like (aggressive dimming)"
+				"Higher values dim the keyboard more at low display levels.\n\n" +
+				"• 1.0 = Linear (keyboard matches display 1:1)\n" +
+				"• 1.5 = Mild correction (default, recommended)\n" +
+				"• 2.0 = Moderate correction\n" +
+				"• 2.2 = sRGB-like (aggressive dimming)"
 		)
 		gammaHelp.font = NSFont.systemFont(ofSize: 11)
 		gammaHelp.textColor = .secondaryLabelColor
@@ -274,8 +275,8 @@ class PreferencesWindowController: NSWindowController {
 
 		let updateHelp = NSTextField(wrappingLabelWithString:
 			"When enabled, \(AppInfo.shortName) will check for updates when it starts. " +
-			"You control when to install updates.\n\n" +
-			"When disabled, use 'Check for Updates' in the menu bar to manually check."
+				"You control when to install updates.\n\n" +
+				"When disabled, use 'Check for Updates' in the menu bar to manually check."
 		)
 		updateHelp.font = NSFont.systemFont(ofSize: 11)
 		updateHelp.textColor = .secondaryLabelColor
@@ -293,10 +294,10 @@ class PreferencesWindowController: NSWindowController {
 
 		let privacyText = NSTextField(wrappingLabelWithString:
 			"\(AppInfo.shortName) collects zero user data. Everything runs locally on your Mac.\n\n" +
-			"• No analytics or telemetry\n" +
-			"• No crash reports\n" +
-			"• No network connections (except update checks)\n" +
-			"• Settings stored locally in ~/.twinkley.json"
+				"• No analytics or telemetry\n" +
+				"• No crash reports\n" +
+				"• No network connections (except update checks)\n" +
+				"• Settings stored locally in ~/.twinkley.json"
 		)
 		privacyText.font = NSFont.systemFont(ofSize: 11)
 		privacyText.frame = NSRect(x: 40, y: yPos - 105, width: 420, height: 115)
@@ -359,10 +360,10 @@ class PreferencesWindowController: NSWindowController {
 	// MARK: - Helpers
 
 	private func formatInterval(_ ms: Int) -> String {
-		if ms < 1000 {
+		if ms < 1_000 {
 			return "\(ms)ms"
 		} else {
-			let seconds = Double(ms) / 1000.0
+			let seconds = Double(ms) / 1_000.0
 			return String(format: "%.1fs", seconds)
 		}
 	}

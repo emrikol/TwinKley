@@ -239,7 +239,7 @@ class BrightnessKeyMonitor {
 	private func handleEvent(type: CGEventType, event: CGEvent) {
 		// Handle event tap being disabled by macOS (happens after sleep/wake, timeout, etc.)
 		// kCGEventTapDisabledByTimeout = 0xFFFFFFFE, kCGEventTapDisabledByUserInput = 0xFFFFFFFD
-		if type.rawValue == 0xFFFFFFFE || type.rawValue == 0xFFFFFFFD {
+		if type.rawValue == 0xFFFF_FFFE || type.rawValue == 0xFFFF_FFFD {
 			debugLog("⚠️  Event tap disabled by macOS (type=\(type.rawValue)) - re-enabling")
 			if let tap = eventTap {
 				CGEvent.tapEnable(tap: tap, enable: true)
@@ -829,7 +829,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 		// Check if this view is an NSImageView with the app icon
 		if let imageView = view as? NSImageView,
-		   imageView.image === NSApp.applicationIconImage {
+		   imageView.image === NSApp.applicationIconImage
+		{
 			return imageView
 		}
 
@@ -846,7 +847,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	@objc
 	private func iconDoubleClicked() {
 		// Don't allow disabling debug mode if it was enabled via CLI
-		if debugEnabledViaCLI && debugEnabled {
+		if debugEnabledViaCLI, debugEnabled {
 			let alert = NSAlert()
 			alert.messageText = "Debug Mode"
 			alert.informativeText = "Debug mode was enabled via --debug flag and cannot be disabled at runtime."

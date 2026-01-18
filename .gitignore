@@ -48,3 +48,4 @@ NOTES.md
 # Node modules (if any tooling is added)
 node_modules/
 package-lock.json
+NEXT-STEPS-RELEASE.md

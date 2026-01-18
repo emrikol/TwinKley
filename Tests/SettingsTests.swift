@@ -342,7 +342,7 @@ final class SettingsTests: XCTestCase {
 		// Should migrate old keypressSyncEnabled to liveSyncEnabled
 		XCTAssertFalse(settings.liveSyncEnabled)
 		XCTAssertTrue(settings.timedSyncEnabled)
-		XCTAssertEqual(settings.timedSyncIntervalMs, 5000)
+		XCTAssertEqual(settings.timedSyncIntervalMs, 5_000)
 		XCTAssertTrue(settings.pauseTimedSyncOnBattery)
 		XCTAssertFalse(settings.pauseTimedSyncOnLowBattery)
 		XCTAssertEqual(settings.brightnessGamma, 2.0, accuracy: 0.001)
@@ -387,6 +387,6 @@ final class SettingsTests: XCTestCase {
 		// Should default to true when key is missing
 		XCTAssertTrue(settings.liveSyncEnabled)
 		XCTAssertTrue(settings.timedSyncEnabled)
-		XCTAssertEqual(settings.timedSyncIntervalMs, 5000)
+		XCTAssertEqual(settings.timedSyncIntervalMs, 5_000)
 	}
 }

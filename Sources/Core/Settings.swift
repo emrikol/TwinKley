@@ -79,16 +79,16 @@ public struct Settings: Codable, Equatable {
 		if let liveSyncEnabled = try? container.decode(Bool.self, forKey: .liveSyncEnabled) {
 			self.liveSyncEnabled = liveSyncEnabled
 		} else if let keypressSyncEnabled = try? container.decode(Bool.self, forKey: .keypressSyncEnabled) {
-			self.liveSyncEnabled = keypressSyncEnabled // Migrate old setting
+			liveSyncEnabled = keypressSyncEnabled // Migrate old setting
 		} else {
-			self.liveSyncEnabled = true // Default if neither exists
+			liveSyncEnabled = true // Default if neither exists
 		}
 
 		timedSyncEnabled = try container.decode(Bool.self, forKey: .timedSyncEnabled)
-		timedSyncIntervalMs = Self.clampInterval(try container.decode(Int.self, forKey: .timedSyncIntervalMs))
+		timedSyncIntervalMs = try Self.clampInterval(container.decode(Int.self, forKey: .timedSyncIntervalMs))
 		pauseTimedSyncOnBattery = try container.decode(Bool.self, forKey: .pauseTimedSyncOnBattery)
 		pauseTimedSyncOnLowBattery = try container.decode(Bool.self, forKey: .pauseTimedSyncOnLowBattery)
-		brightnessGamma = Self.clampGamma(try container.decode(Double.self, forKey: .brightnessGamma))
+		brightnessGamma = try Self.clampGamma(container.decode(Double.self, forKey: .brightnessGamma))
 		// Backward compatibility: default to false if key doesn't exist
 		hasLaunchedBefore = (try? container.decode(Bool.self, forKey: .hasLaunchedBefore)) ?? false
 	}
