@@ -18,7 +18,7 @@ import TwinKleyCore
 	private var autoCheckUpdatesCheckbox: NSButton!
 	private var tabView: NSTabView!
 
-	public override init(window: NSWindow?) {
+	override public init(window: NSWindow?) {
 		super.init(window: window)
 	}
 
@@ -107,7 +107,9 @@ import TwinKleyCore
 		tabView.selectTabViewItem(at: sender.selectedSegment)
 	}
 
-	private func createSyncTab() -> NSView {
+	// Rationale: Tab UI setup creates all controls in logical groups.
+	// Keeping sync-related controls together makes the layout easier to maintain.
+	private func createSyncTab() -> NSView { // swiftlint:disable:this function_body_length
 		let view = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 400))
 
 		var yPos: CGFloat = 360

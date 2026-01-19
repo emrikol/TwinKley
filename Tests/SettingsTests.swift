@@ -109,6 +109,38 @@ final class SettingsTests: XCTestCase {
 		XCTAssertNotNil(settings)
 	}
 
+	func testSettingsLoaderSaveUsesDefaultURLWhenNil() {
+		// Test that save() with no URL argument uses the default file URL
+		let defaultURL = SettingsLoader.defaultFileURL
+		let backupURL = defaultURL.deletingLastPathComponent()
+			.appendingPathComponent(".twinkley-backup-\(UUID().uuidString).json")
+
+		// Backup existing settings if present
+		let hasExisting = FileManager.default.fileExists(atPath: defaultURL.path)
+		if hasExisting {
+			try? FileManager.default.moveItem(at: defaultURL, to: backupURL)
+		}
+
+		defer {
+			// Cleanup and restore
+			try? FileManager.default.removeItem(at: defaultURL)
+			if hasExisting {
+				try? FileManager.default.moveItem(at: backupURL, to: defaultURL)
+			}
+		}
+
+		// Save using default URL (nil parameter)
+		let settings = Settings(liveSyncEnabled: false, timedSyncEnabled: true, timedSyncIntervalMs: 999)
+		let result = SettingsLoader.save(settings, to: nil)
+
+		XCTAssertTrue(result, "Save should succeed")
+		XCTAssertTrue(FileManager.default.fileExists(atPath: defaultURL.path), "File should exist at default URL")
+
+		// Verify we can load it back
+		let loaded = SettingsLoader.load(from: defaultURL)
+		XCTAssertEqual(loaded.timedSyncIntervalMs, 999)
+	}
+
 	func testSettingsLoaderSaveFailure() {
 		// Use an invalid path that will fail to write
 		let invalidURL = URL(fileURLWithPath: "/nonexistent/directory/settings.json")
@@ -342,5 +374,199 @@ final class SettingsTests: XCTestCase {
 		XCTAssertTrue(jsonString.contains("\"liveSyncEnabled\" : true"))
 		// Should NOT save old key name
 		XCTAssertFalse(jsonString.contains("\"keypressSyncEnabled\""))
+	}
+
+	// MARK: - Decode Clamping Tests (Security)
+
+	func testDecodingInvalidIntervalBelowMinClamps() throws {
+		// JSON with interval below minimum should be clamped on decode
+		let json = """
+		{
+			"liveSyncEnabled": true,
+			"timedSyncEnabled": false,
+			"timedSyncIntervalMs": 50,
+			"pauseTimedSyncOnBattery": false,
+			"pauseTimedSyncOnLowBattery": true,
+			"brightnessGamma": 1.5,
+			"hasLaunchedBefore": false,
+			"hasAcknowledgedUpdatePrivacy": false
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+		// Should be clamped to minimum (100ms)
+		XCTAssertEqual(decoded.timedSyncIntervalMs, Settings.intervalMin)
+	}
+
+	func testDecodingInvalidIntervalAboveMaxClamps() throws {
+		// JSON with interval above maximum should be clamped on decode
+		let json = """
+		{
+			"liveSyncEnabled": true,
+			"timedSyncEnabled": false,
+			"timedSyncIntervalMs": 100000,
+			"pauseTimedSyncOnBattery": false,
+			"pauseTimedSyncOnLowBattery": true,
+			"brightnessGamma": 1.5,
+			"hasLaunchedBefore": false,
+			"hasAcknowledgedUpdatePrivacy": false
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+		// Should be clamped to maximum (60000ms)
+		XCTAssertEqual(decoded.timedSyncIntervalMs, Settings.intervalMax)
+	}
+
+	func testDecodingNegativeIntervalClamps() throws {
+		// JSON with negative interval should be clamped on decode
+		let json = """
+		{
+			"liveSyncEnabled": true,
+			"timedSyncEnabled": false,
+			"timedSyncIntervalMs": -100,
+			"pauseTimedSyncOnBattery": false,
+			"pauseTimedSyncOnLowBattery": true,
+			"brightnessGamma": 1.5,
+			"hasLaunchedBefore": false,
+			"hasAcknowledgedUpdatePrivacy": false
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+		// Should be clamped to minimum (100ms)
+		XCTAssertEqual(decoded.timedSyncIntervalMs, Settings.intervalMin)
+	}
+
+	func testDecodingInvalidGammaBelowMinClamps() throws {
+		// JSON with gamma below minimum should be clamped on decode
+		let json = """
+		{
+			"liveSyncEnabled": true,
+			"timedSyncEnabled": false,
+			"timedSyncIntervalMs": 10000,
+			"pauseTimedSyncOnBattery": false,
+			"pauseTimedSyncOnLowBattery": true,
+			"brightnessGamma": 0.1,
+			"hasLaunchedBefore": false,
+			"hasAcknowledgedUpdatePrivacy": false
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+		// Should be clamped to minimum (0.5)
+		XCTAssertEqual(decoded.brightnessGamma, Settings.gammaMin)
+	}
+
+	func testDecodingInvalidGammaAboveMaxClamps() throws {
+		// JSON with gamma above maximum should be clamped on decode
+		let json = """
+		{
+			"liveSyncEnabled": true,
+			"timedSyncEnabled": false,
+			"timedSyncIntervalMs": 10000,
+			"pauseTimedSyncOnBattery": false,
+			"pauseTimedSyncOnLowBattery": true,
+			"brightnessGamma": 10.0,
+			"hasLaunchedBefore": false,
+			"hasAcknowledgedUpdatePrivacy": false
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+		// Should be clamped to maximum (4.0)
+		XCTAssertEqual(decoded.brightnessGamma, Settings.gammaMax)
+	}
+
+	func testDecodingZeroIntervalClamps() throws {
+		// JSON with zero interval (would cause CPU spin) should be clamped
+		let json = """
+		{
+			"liveSyncEnabled": true,
+			"timedSyncEnabled": true,
+			"timedSyncIntervalMs": 0,
+			"pauseTimedSyncOnBattery": false,
+			"pauseTimedSyncOnLowBattery": true,
+			"brightnessGamma": 1.5,
+			"hasLaunchedBefore": false,
+			"hasAcknowledgedUpdatePrivacy": false
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+		// Should be clamped to minimum (100ms) - prevents CPU spin
+		XCTAssertEqual(decoded.timedSyncIntervalMs, Settings.intervalMin)
+	}
+
+	// MARK: - Backward Compatibility Tests
+
+	func testDecodingWithMissingKeysUsesDefaults() throws {
+		// Minimal JSON (old version) should decode without throwing and use defaults
+		let json = """
+		{
+			"liveSyncEnabled": true,
+			"timedSyncIntervalMs": 5000
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+		let defaults = Settings()
+
+		// Specified values should be used
+		XCTAssertEqual(decoded.liveSyncEnabled, true)
+		XCTAssertEqual(decoded.timedSyncIntervalMs, 5_000)
+
+		// Missing keys should use defaults
+		XCTAssertEqual(decoded.timedSyncEnabled, defaults.timedSyncEnabled)
+		XCTAssertEqual(decoded.pauseTimedSyncOnBattery, defaults.pauseTimedSyncOnBattery)
+		XCTAssertEqual(decoded.pauseTimedSyncOnLowBattery, defaults.pauseTimedSyncOnLowBattery)
+		XCTAssertEqual(decoded.brightnessGamma, defaults.brightnessGamma)
+		XCTAssertEqual(decoded.hasLaunchedBefore, defaults.hasLaunchedBefore)
+		XCTAssertEqual(decoded.hasAcknowledgedUpdatePrivacy, defaults.hasAcknowledgedUpdatePrivacy)
+	}
+
+	func testDecodingEmptyJSONUsesAllDefaults() throws {
+		// Empty JSON should decode successfully with all defaults
+		let json = "{}"
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+		let defaults = Settings()
+
+		// All values should match defaults
+		XCTAssertEqual(decoded.liveSyncEnabled, defaults.liveSyncEnabled)
+		XCTAssertEqual(decoded.timedSyncEnabled, defaults.timedSyncEnabled)
+		XCTAssertEqual(decoded.timedSyncIntervalMs, defaults.timedSyncIntervalMs)
+		XCTAssertEqual(decoded.pauseTimedSyncOnBattery, defaults.pauseTimedSyncOnBattery)
+		XCTAssertEqual(decoded.pauseTimedSyncOnLowBattery, defaults.pauseTimedSyncOnLowBattery)
+		XCTAssertEqual(decoded.brightnessGamma, defaults.brightnessGamma)
+		XCTAssertEqual(decoded.hasLaunchedBefore, defaults.hasLaunchedBefore)
+		XCTAssertEqual(decoded.hasAcknowledgedUpdatePrivacy, defaults.hasAcknowledgedUpdatePrivacy)
+	}
+
+	func testDecodingPartialJSONWithInvalidValuesClampsAndFillsDefaults() throws {
+		// Partial JSON with some invalid values - should clamp invalids and use defaults for missing
+		let json = """
+		{
+			"timedSyncIntervalMs": -500,
+			"brightnessGamma": 10.0
+		}
+		"""
+		let data = json.data(using: .utf8)!
+		let decoded = try JSONDecoder().decode(Settings.self, from: data)
+		let defaults = Settings()
+
+		// Invalid values should be clamped
+		XCTAssertEqual(decoded.timedSyncIntervalMs, Settings.intervalMin) // -500 → 100
+		XCTAssertEqual(decoded.brightnessGamma, Settings.gammaMax) // 10.0 → 4.0
+
+		// Missing keys should use defaults
+		XCTAssertEqual(decoded.liveSyncEnabled, defaults.liveSyncEnabled)
+		XCTAssertEqual(decoded.timedSyncEnabled, defaults.timedSyncEnabled)
 	}
 }

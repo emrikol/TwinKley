@@ -238,4 +238,97 @@ final class BrightnessSyncManagerTests: XCTestCase {
 			XCTAssertEqual(controller.lastSetBrightness!, expected, accuracy: 0.001)
 		}
 	}
+
+	// MARK: - Failure Handling Tests (Correctness Fix)
+
+	func testSyncDoesNotUpdateLastBrightnessOnFailure() {
+		// First sync succeeds
+		provider.brightnessToReturn = 0.5
+		controller.shouldSucceed = true
+		_ = syncManager.sync(gamma: 1.0)
+
+		let brightessAfterFirstSync = syncManager.lastSyncedBrightness
+		XCTAssertNotNil(brightessAfterFirstSync)
+		XCTAssertEqual(brightessAfterFirstSync, 0.5, accuracy: 0.001)
+
+		// Second sync fails - lastBrightness should NOT be updated
+		provider.brightnessToReturn = 0.8
+		controller.shouldSucceed = false
+		let result = syncManager.sync(gamma: 1.0)
+
+		XCTAssertFalse(result)
+		// lastBrightness should still be 0.5, not 0.8
+		XCTAssertEqual(syncManager.lastSyncedBrightness, 0.5, accuracy: 0.001)
+	}
+
+	func testSyncRetriesAfterFailure() {
+		// First sync fails
+		provider.brightnessToReturn = 0.5
+		controller.shouldSucceed = false
+		let firstResult = syncManager.sync(gamma: 1.0)
+
+		XCTAssertFalse(firstResult)
+		// lastBrightness should still be -1 (unchanged from initial)
+		XCTAssertEqual(syncManager.lastSyncedBrightness, -1)
+
+		// Same brightness value, but now controller succeeds - should retry
+		controller.shouldSucceed = true
+		let secondResult = syncManager.sync(gamma: 1.0)
+
+		XCTAssertTrue(secondResult)
+		XCTAssertEqual(syncManager.lastSyncedBrightness, 0.5, accuracy: 0.001)
+		// Controller should have been called twice (once for each attempt)
+		XCTAssertEqual(controller.callCount, 2)
+	}
+
+	// MARK: - Display Brightness Tracking Tests (Energy Fix)
+
+	func testLastSyncedDisplayBrightnessInitialValue() {
+		// Initial value should be -1 (not yet synced)
+		XCTAssertEqual(syncManager.lastSyncedDisplayBrightness, -1)
+	}
+
+	func testLastSyncedDisplayBrightnessTracked() {
+		provider.brightnessToReturn = 0.75
+		_ = syncManager.sync(gamma: 1.0)
+
+		// Should track the raw display brightness (not gamma-corrected)
+		XCTAssertEqual(syncManager.lastSyncedDisplayBrightness, 0.75, accuracy: 0.001)
+	}
+
+	func testLastSyncedDisplayBrightnessUpdatedEachSync() {
+		provider.brightnessToReturn = 0.5
+		_ = syncManager.sync(gamma: 1.0)
+		XCTAssertEqual(syncManager.lastSyncedDisplayBrightness, 0.5, accuracy: 0.001)
+
+		provider.brightnessToReturn = 0.8
+		_ = syncManager.sync(gamma: 1.0)
+		XCTAssertEqual(syncManager.lastSyncedDisplayBrightness, 0.8, accuracy: 0.001)
+	}
+
+	func testLastSyncedDisplayBrightnessResetOnProviderFailure() {
+		// First sync succeeds
+		provider.brightnessToReturn = 0.5
+		_ = syncManager.sync(gamma: 1.0)
+		XCTAssertEqual(syncManager.lastSyncedDisplayBrightness, 0.5, accuracy: 0.001)
+
+		// Provider returns nil - should reset lastSyncedDisplayBrightness to -1
+		provider.brightnessToReturn = nil
+		let result = syncManager.sync(gamma: 1.0)
+
+		XCTAssertFalse(result)
+		// Should be reset to -1 to signal invalid/no reading (prevents logging stale values)
+		XCTAssertEqual(syncManager.lastSyncedDisplayBrightness, -1.0, accuracy: 0.001)
+	}
+
+	func testLastSyncedDisplayBrightnessVsLastSyncedBrightness() {
+		// Verify that display brightness is raw and keyboard brightness is gamma-corrected
+		provider.brightnessToReturn = 0.5
+		_ = syncManager.sync(gamma: 2.0)
+
+		// Display brightness should be raw (0.5)
+		XCTAssertEqual(syncManager.lastSyncedDisplayBrightness, 0.5, accuracy: 0.001)
+		// Keyboard brightness should be gamma-corrected (0.5^2.0 = 0.25)
+		XCTAssertEqual(syncManager.lastSyncedBrightness, 0.25, accuracy: 0.001)
+	}
 }

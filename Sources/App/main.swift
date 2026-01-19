@@ -1,3 +1,7 @@
+// swiftlint:disable file_length
+// Rationale: main.swift is the single-file app architecture per CLAUDE.md design.
+// Splitting would add complexity contrary to the "simplicity" principle.
+
 import AppKit
 import CoreGraphics
 import IOKit.ps
@@ -118,8 +122,18 @@ private func handleHealthCheck() -> Bool {
 	// Try to use UI library for health check
 	if let loader = getUILoader() {
 		// Run health check from UI library (handles accessibility, frameworks, mac model)
-		let exitCode = loader.perform(NSSelectorFromString("runHealthCheck"))?.toOpaque()
-		let code = Int32(Int(bitPattern: exitCode))
+		let selector = NSSelectorFromString("runHealthCheck")
+
+		// Check if method exists (avoid perform() for primitives - it can't distinguish 0 from nil)
+		guard loader.responds(to: selector) else {
+			print("⚠️  Health check method unavailable")
+			exit(1)
+		}
+
+		// Call using objc_msgSend with typed signature to properly handle Int32 return
+		typealias HealthCheckFunc = @convention(c) (AnyObject, Selector) -> Int32
+		let msgSend = unsafeBitCast(dlsym(dlopen(nil, RTLD_NOW), "objc_msgSend"), to: HealthCheckFunc.self)
+		let code = msgSend(loader, selector)
 
 		// Add display brightness check (requires main binary's brightness API)
 		if let getFunc = getBrightnessFunc {
@@ -147,7 +161,7 @@ private func handleHealthCheck() -> Bool {
 
 func debugLog(_ message: String) {
 	guard debugEnabled else { return }
-	let timestamp = ISO8601DateFormatter().string(from: Date())
+	let timestamp = Date().ISO8601Format()
 	let line = "[\(timestamp)] \(message)\n"
 	print(line, terminator: "")
 	// Also write to log file for background debugging
@@ -166,7 +180,43 @@ func debugLog(_ message: String) {
 	}
 }
 
+// MARK: - Power Source Provider (IOKit implementation)
+
+/// System implementation of PowerSourceProvider using IOKit
+struct SystemPowerSourceProvider: PowerSourceProvider {
+	func getPowerSourcesInfo() -> [[String: Any]]? {
+		guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+			  let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef] else
+		{
+			return nil
+		}
+
+		var result: [[String: Any]] = []
+		for source in sources {
+			if let info = IOPSGetPowerSourceDescription(snapshot, source)?
+				.takeUnretainedValue() as? [String: Any]
+			{
+				// Map IOKit keys to our portable keys
+				var mapped: [String: Any] = [:]
+				if let state = info[kIOPSPowerSourceStateKey] as? String {
+					mapped[PowerState.powerSourceStateKey] = state == kIOPSBatteryPowerValue
+						? PowerState.batteryPowerValue : state
+				}
+				if let capacity = info[kIOPSCurrentCapacityKey] as? Int {
+					mapped[PowerState.currentCapacityKey] = capacity
+				}
+				result.append(mapped)
+			}
+		}
+		return result.isEmpty ? nil : result
+	}
+}
+
+/// Shared power source provider instance
+private let powerSourceProvider = SystemPowerSourceProvider()
+
 // MARK: - Power State Monitor (notification-based, no polling)
+
 // Note: PowerState struct is defined in TwinKleyCore
 
 class PowerStateMonitor {
@@ -179,7 +229,7 @@ class PowerStateMonitor {
 		runLoopSource = IOPSNotificationCreateRunLoopSource({ context in
 			guard let context else { return }
 			let monitor = Unmanaged<PowerStateMonitor>.fromOpaque(context).takeUnretainedValue()
-			let state = PowerState.current()
+			let state = PowerState.current(provider: powerSourceProvider)
 			debugLog("Power state changed: onBattery=\(state.isOnBattery), level=\(state.batteryLevel)%")
 			DispatchQueue.main.async {
 				monitor.onPowerStateChanged?(state)
@@ -308,8 +358,8 @@ class KeyboardBrightnessController: BrightnessController, KeyboardBrightnessProt
 		guard ensureInitialized(),
 			  let client,
 			  client.responds(to: getKeyboardIDsSelector),
-			  let ids = client.perform(getKeyboardIDsSelector)?.takeUnretainedValue() as? [NSNumber]
-		else {
+			  let ids = client.perform(getKeyboardIDsSelector)?.takeUnretainedValue() as? [NSNumber] else
+		{
 			return []
 		}
 		return ids.map(\.uint64Value)
@@ -383,7 +433,9 @@ class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 		return true
 	}
 
-	private func handleEvent(type: CGEventType, event: CGEvent) {
+	// Rationale: Event handling logic is inherently sequential and interconnected.
+	// Breaking it up would obscure the event flow and make debugging harder.
+	private func handleEvent(type: CGEventType, event: CGEvent) { // swiftlint:disable:this function_body_length
 		// Handle event tap being disabled by macOS (happens after sleep/wake, timeout, etc.)
 		// kCGEventTapDisabledByTimeout = 0xFFFFFFFE, kCGEventTapDisabledByUserInput = 0xFFFFFFFD
 		if type.rawValue == 0xFFFF_FFFE || type.rawValue == 0xFFFF_FFFD {
@@ -511,7 +563,7 @@ class AppBrightnessSyncManager: BrightnessSyncProtocol {
 
 	init(displayProvider: DisplayBrightnessProvider, keyboardController: KeyboardBrightnessController) {
 		self.displayProvider = displayProvider
-		self.keyboard = keyboardController
+		keyboard = keyboardController
 	}
 
 	/// Sync keyboard brightness to display brightness with debug logging
@@ -521,24 +573,26 @@ class AppBrightnessSyncManager: BrightnessSyncProtocol {
 	func sync(gamma: Double = 1.0, trigger: SyncTrigger = .manual) {
 		let startTime = Date()
 
-		// Get display brightness for logging
-		let displayBrightness = displayProvider.getDisplayBrightness()
 		let previousBrightness = coreSyncManager.lastSyncedBrightness
 
-		// Perform sync
+		// Perform sync (reads display brightness internally)
 		let result = coreSyncManager.sync(gamma: gamma)
 
-		let durationMs = Int(Date().timeIntervalSince(startTime) * 1000)
+		// Use cached display brightness from core manager (avoids double-read)
+		let displayBrightness = coreSyncManager.lastSyncedDisplayBrightness
+		let displayBrightnessValid = displayBrightness >= 0
+
+		let durationMs = Int(Date().timeIntervalSince(startTime) * 1_000)
 		let keyboardBrightness = coreSyncManager.lastSyncedBrightness
 		let changeNeeded = keyboardBrightness != previousBrightness
 
 		// Log if brightness changed
-		if let displayBrightness, changeNeeded {
+		if displayBrightnessValid, changeNeeded {
 			debugLog("Sync: display=\(String(format: "%.4f", displayBrightness)) -> keyboard=\(String(format: "%.4f", keyboardBrightness)) (γ=\(String(format: "%.1f", gamma))) \(result ? "OK" : "FAILED")")
 		}
 
 		// Record to history if enabled
-		if syncHistoryEnabled, let displayBrightness {
+		if syncHistoryEnabled, displayBrightnessValid {
 			let record = SyncRecord(
 				timestamp: startTime,
 				trigger: trigger,
@@ -605,19 +659,21 @@ private class SettingsProtocolAdapter: SettingsProtocol {
 	var settings: Settings { getSettings() }
 
 	func update(_ block: (inout Settings) -> Void) {
-		var s = getSettings()
-		block(&s)
-		setSettings(s)
+		var currentSettings = getSettings()
+		block(&currentSettings)
+		setSettings(currentSettings)
 	}
 }
 
 // MARK: - App Delegate
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+// Rationale: AppDelegate is the central coordinator for this single-purpose utility.
+// Splitting into multiple classes would fragment the straightforward control flow.
+class AppDelegate: NSObject, NSApplicationDelegate { // swiftlint:disable:this type_body_length
 	private var statusItem: NSStatusItem!
 	private var keyMonitor: BrightnessKeyMonitor?
 	private var powerMonitor: PowerStateMonitor?
-	private var currentPowerState = PowerState.current()
+	private var currentPowerState = PowerState.current(provider: powerSourceProvider)
 	private var keypressSyncMenuItem: NSMenuItem!
 	private var timedSyncMenuItem: NSMenuItem!
 	private var fallbackTimer: Timer?
@@ -627,7 +683,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private func saveSettings() { SettingsLoader.save(settings) }
 
 	// Adapter to expose settings via SettingsProtocol for UI windows
-	private lazy var settingsAdapter: SettingsProtocolAdapter = SettingsProtocolAdapter(
+	private lazy var settingsAdapter = SettingsProtocolAdapter(
 		getSettings: { [weak self] in self?.settings ?? Settings.default },
 		setSettings: { [weak self] newSettings in
 			self?.settings = newSettings
@@ -744,7 +800,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private var showBrightnessInMenu = false
 	private var brightnessDisplayTimer: Timer?
 
-	private func setupStatusItem() {
+	// Rationale: Menu setup is a cohesive unit - all menu items defined together.
+	// Splitting would scatter related menu configuration across multiple functions.
+	private func setupStatusItem() { // swiftlint:disable:this function_body_length
 		// Use variable length if showing brightness, otherwise square for icon only
 		showBrightnessInMenu = debugOptions.showBrightnessInMenu
 		let length = showBrightnessInMenu ? NSStatusItem.variableLength : NSStatusItem.squareLength
@@ -1066,8 +1124,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	@objc
 	private func showAbout() {
 		guard let loader = getUILoader(),
-		      let window = loader.perform(NSSelectorFromString("createAboutWindow"))?.takeUnretainedValue()
-		else { return }
+			  let window = loader.perform(NSSelectorFromString("createAboutWindow"))?.takeUnretainedValue() else { return }
 
 		aboutWindow = window as? AboutWindowProtocol
 		if let aboutCtrl = window as? NSObject {
@@ -1086,8 +1143,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private func showDebugWindow() {
 		if debugWindow == nil {
 			guard let loader = getUILoader(),
-			      let window = loader.perform(NSSelectorFromString("createDebugWindow"))?.takeUnretainedValue()
-			else { return }
+				  let window = loader.perform(NSSelectorFromString("createDebugWindow"))?.takeUnretainedValue() else { return }
 
 			debugWindow = window as? DebugWindowProtocol
 
@@ -1097,6 +1153,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 			context.keyboardController = keyboardController
 			context.syncManager = syncManager
 			context.settingsManager = settingsAdapter
+			context.powerSourceProvider = powerSourceProvider
 			context.onDebugModeChanged = { enabled in
 				debugEnabled = enabled
 			}
@@ -1114,8 +1171,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 	private func showPreferences() {
 		if preferencesWindow == nil {
 			guard let loader = getUILoader(),
-			      let window = loader.perform(NSSelectorFromString("createPreferencesWindow"))?.takeUnretainedValue()
-			else { return }
+				  let window = loader.perform(NSSelectorFromString("createPreferencesWindow"))?.takeUnretainedValue() else { return }
 
 			preferencesWindow = window as? PreferencesWindowProtocol
 
@@ -1157,8 +1213,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		// Show privacy notice on first update check (dialog in UI library)
 		if !settings.hasAcknowledgedUpdatePrivacy {
 			if let loader = getUILoader() {
-				let result = loader.perform(NSSelectorFromString("showUpdatePrivacyNotice"))
-				let shouldProceed = result?.toOpaque() != nil
+				// Use typed objc_msgSend for reliable Bool return
+				let selector = NSSelectorFromString("showUpdatePrivacyNotice")
+				guard loader.responds(to: selector) else { return }
+				typealias ShowPrivacyFunc = @convention(c) (AnyObject, Selector) -> Bool
+				let msgSend = unsafeBitCast(dlsym(dlopen(nil, RTLD_NOW), "objc_msgSend"), to: ShowPrivacyFunc.self)
+				let shouldProceed = msgSend(loader, selector)
 				if shouldProceed {
 					settings.hasAcknowledgedUpdatePrivacy = true
 					saveSettings()

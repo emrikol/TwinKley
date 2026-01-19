@@ -1,7 +1,7 @@
 # SwiftFormat configuration for KeyboardBrightnessSync
 
 # File options
---exclude .build,Package.swift
+--exclude .build,Package.swift,Packages/TwinKleyCore/Package.swift,scripts
 
 # Format options
 --indent tab
@@ -25,7 +25,7 @@
 --varattributes same-line
 --self remove
 --importgrouping alpha
---commas always
+--commas inline
 --decimalgrouping 3,4
 --binarygrouping 4,8
 --octalgrouping 4,8
@@ -92,7 +92,7 @@
 --enable strongifiedSelf
 --enable todos
 --enable trailingClosures
---enable trailingCommas
+--disable trailingCommas
 --enable trailingSpace
 --enable typeSugar
 --enable void

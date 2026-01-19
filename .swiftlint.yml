@@ -4,6 +4,7 @@
 included:
   - Sources
   - Tests
+  - Packages
 
 # Paths to exclude
 excluded:
@@ -61,8 +62,8 @@ line_length:
   ignores_comments: true
 
 type_body_length:
-  warning: 300
-  error: 500
+  warning: 400  # Increased for test files with comprehensive coverage
+  error: 600
 
 file_length:
   warning: 750      # main.swift is ~700 lines by design (single-file app)
@@ -100,7 +101,7 @@ type_name:
 missing_docs:
   excludes_extensions: true       # Don't require docs on protocol conformance extensions
   excludes_inherited_types: true  # Don't require docs on inherited methods
-  warning:
+  error:                          # Enforce documentation on public APIs
     - open
     - public
 

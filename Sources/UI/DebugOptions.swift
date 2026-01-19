@@ -100,7 +100,7 @@ public struct DebugOptions: Equatable {
 	public func toCommandLineArguments() -> [String] {
 		var args: [String] = []
 
-		if loggingEnabled && !verboseEvents && !logSyncHistory {
+		if loggingEnabled, !verboseEvents, !logSyncHistory {
 			args.append("--debug")
 		}
 
@@ -157,39 +157,39 @@ public enum DebugOption: String, CaseIterable {
 	public var description: String {
 		switch self {
 		case .logging:
-			return "Log events to ~/.twinkley-debug.log"
+			"Log events to ~/.twinkley-debug.log"
 		case .captureKeypresses:
-			return "Record all key events for diagnostics (privacy sensitive)"
+			"Record all key events for diagnostics (privacy sensitive)"
 		case .verboseEvents:
-			return "Log all NX_SYSDEFINED events, not just brightness keys"
+			"Log all NX_SYSDEFINED events, not just brightness keys"
 		case .showBrightnessInMenu:
-			return "Display current brightness percentages in the menu bar"
+			"Display current brightness percentages in the menu bar"
 		case .syncHistory:
-			return "Log all sync operations with timing information"
+			"Log all sync operations with timing information"
 		}
 	}
 
 	public var cliArgument: String {
 		switch self {
 		case .logging:
-			return "--debug"
+			"--debug"
 		case .captureKeypresses:
-			return "--capture"
+			"--capture"
 		case .verboseEvents:
-			return "--verbose"
+			"--verbose"
 		case .showBrightnessInMenu:
-			return "--show-brightness"
+			"--show-brightness"
 		case .syncHistory:
-			return "--sync-history"
+			"--sync-history"
 		}
 	}
 
 	public var isPrivacySensitive: Bool {
 		switch self {
 		case .captureKeypresses:
-			return true
+			true
 		default:
-			return false
+			false
 		}
 	}
 }

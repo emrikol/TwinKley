@@ -8,7 +8,7 @@ import TwinKleyCore
 @objc public class TwinKleyUILoader: NSObject {
 	@objc public static let shared = TwinKleyUILoader()
 
-	private override init() {
+	override private init() {
 		super.init()
 	}
 
@@ -147,7 +147,7 @@ import TwinKleyCore
 
 		// Detect stale permission (API says yes but tap fails)
 		let hasAccessibility = tapWorks
-		if apiSaysGranted && !tapWorks {
+		if apiSaysGranted, !tapWorks {
 			print("Accessibility: ⚠️  STALE (API says granted but tap fails)")
 			print("  → Remove and re-add TwinKley in System Settings > Privacy > Accessibility")
 		} else if tapWorks {
@@ -173,7 +173,7 @@ import TwinKleyCore
 
 		// Overall status
 		print("")
-		if hasAccessibility && cbExists && dsExists {
+		if hasAccessibility, cbExists, dsExists {
 			print("Status: ✓ All systems ready")
 			return 0
 		} else {

@@ -34,6 +34,18 @@ APP_DIR="$HOME/Applications/$APP_NAME.app"
 BINARY="$APP_DIR/Contents/MacOS/$APP_NAME"
 REPORT_FILE="/tmp/twinkley-audit-report.txt"
 
+# Section counter for auto-numbering
+SECTION_NUM=0
+TOTAL_SECTIONS=11
+
+# Helper function to print section header with auto-increment
+section_header() {
+    ((SECTION_NUM++))
+    echo ""
+    echo "▶ [$SECTION_NUM/$TOTAL_SECTIONS] $1"
+    echo "────────────────────────────────────────────────────────────────"
+}
+
 # Rebuild if requested (build.sh handles clean for non-fast builds)
 if $DO_REBUILD; then
     echo "▶ Rebuilding app..."
@@ -53,7 +65,7 @@ fi
 # ══════════════════════════════════════════════════════════════════
 # Section 1: Build Verification
 # ══════════════════════════════════════════════════════════════════
-echo "▶ [1/10] Build Verification"
+echo "▶ [1/11] Build Verification"
 echo "────────────────────────────────────────────────────────────────"
 
 if [ ! -f "$BINARY" ]; then
@@ -84,7 +96,7 @@ fi
 # Section 2: Binary Analysis
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [2/10] Binary Analysis"
+echo "▶ [2/11] Binary Analysis"
 echo "────────────────────────────────────────────────────────────────"
 
 # Use wc -c for portable file size (works on all macOS versions)
@@ -295,7 +307,7 @@ done)
 # Section 3: App Bundle Analysis
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [3/10] App Bundle Analysis"
+echo "▶ [3/11] App Bundle Analysis"
 echo "────────────────────────────────────────────────────────────────"
 
 BUNDLE_SIZE=$(du -sk "$APP_DIR" | cut -f1)
@@ -353,7 +365,7 @@ fi
 # Section 4: Memory Footprint
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [4/10] Memory Footprint Analysis"
+echo "▶ [4/11] Memory Footprint Analysis"
 echo "────────────────────────────────────────────────────────────────"
 
 # Kill existing instance
@@ -439,7 +451,7 @@ done
 # Section 5: CPU Usage
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [5/10] CPU Usage Analysis"
+echo "▶ [5/11] CPU Usage Analysis"
 echo "────────────────────────────────────────────────────────────────"
 
 # Sample CPU over 5 seconds
@@ -466,7 +478,7 @@ echo "  Status:          $([ "$CPU_SAMPLES" == "0.0 0.0 0.0 " ] && echo "✓ Idl
 # Section 6: Energy Efficiency Features
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [6/10] Energy Efficiency Features"
+echo "▶ [6/11] Energy Efficiency Features"
 echo "────────────────────────────────────────────────────────────────"
 
 # Check source code for efficiency patterns
@@ -508,7 +520,7 @@ check_feature "pauseTimedSyncOnLowBattery" "Low battery pause option"
 # Section 7: Test Suite
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [7/10] Test Suite"
+echo "▶ [7/11] Test Suite"
 echo "────────────────────────────────────────────────────────────────"
 
 TEST_OUTPUT=$(swift test 2>&1)
@@ -529,32 +541,89 @@ echo "  Status: $TEST_STATUS"
 } >> "$REPORT_FILE"
 
 # ══════════════════════════════════════════════════════════════════
-# Section 8: Code Coverage
+# Section 8: Linting
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [8/10] Code Coverage"
+echo "▶ [8/11] Linting"
+echo "────────────────────────────────────────────────────────────────"
+
+# Run SwiftFormat
+SWIFTFORMAT_OUTPUT=$(swiftformat Sources/ Tests/ Packages/ --quiet 2>&1)
+SWIFTFORMAT_STATUS="PASSED"
+if [ -n "$SWIFTFORMAT_OUTPUT" ]; then
+	SWIFTFORMAT_STATUS="FAILED"
+	echo "  ✗ SwiftFormat failed"
+	echo "$SWIFTFORMAT_OUTPUT" | sed 's/^/    /'
+else
+	echo "  ✓ SwiftFormat passed"
+fi
+
+# Run SwiftLint (strict mode)
+SWIFTLINT_OUTPUT=$(swiftlint lint --strict --quiet 2>&1 | grep -v "Found a configuration for 'line_length'" || true)
+SWIFTLINT_STATUS="PASSED"
+SWIFTLINT_VIOLATIONS=0
+if [ -n "$SWIFTLINT_OUTPUT" ]; then
+	SWIFTLINT_VIOLATIONS=$(echo "$SWIFTLINT_OUTPUT" | grep -c "error:" || echo "0")
+	if [ "$SWIFTLINT_VIOLATIONS" -gt 0 ]; then
+		SWIFTLINT_STATUS="FAILED"
+		echo "  ✗ SwiftLint --strict failed ($SWIFTLINT_VIOLATIONS violations)"
+		echo "$SWIFTLINT_OUTPUT" | sed 's/^/    /'
+	else
+		echo "  ✓ SwiftLint --strict passed"
+	fi
+else
+	echo "  ✓ SwiftLint --strict passed"
+fi
+
+{
+	echo "## 8. Linting"
+	echo ""
+	echo "| Tool | Status | Violations |"
+	echo "|------|--------|------------|"
+	echo "| SwiftFormat | $SWIFTFORMAT_STATUS | - |"
+	echo "| SwiftLint (strict) | $SWIFTLINT_STATUS | $SWIFTLINT_VIOLATIONS |"
+	echo ""
+	if [ "$SWIFTFORMAT_STATUS" != "PASSED" ] || [ "$SWIFTLINT_STATUS" != "PASSED" ]; then
+		echo "### Issues Found"
+		echo ""
+		echo "\`\`\`"
+		[ -n "$SWIFTFORMAT_OUTPUT" ] && echo "SwiftFormat:" && echo "$SWIFTFORMAT_OUTPUT"
+		[ -n "$SWIFTLINT_OUTPUT" ] && echo "SwiftLint:" && echo "$SWIFTLINT_OUTPUT"
+		echo "\`\`\`"
+		echo ""
+	fi
+} >> "$REPORT_FILE"
+
+# ══════════════════════════════════════════════════════════════════
+# Section 9: Code Coverage
+# ══════════════════════════════════════════════════════════════════
+echo ""
+echo "▶ [9/11] Code Coverage"
 echo "────────────────────────────────────────────────────────────────"
 
 # Run tests with coverage
 swift test --enable-code-coverage > /dev/null 2>&1 || true
 
 COVERAGE_FILE=".build/debug/codecov/default.profdata"
-TEST_BINARY=".build/debug/TwinKleyPackageTests.xctest/Contents/MacOS/TwinKleyPackageTests"
+CORE_LIBRARY=".build/debug/libTwinKleyCore.dylib"
 
-if [ -f "$COVERAGE_FILE" ] && [ -f "$TEST_BINARY" ]; then
-    COVERAGE_OUTPUT=$(xcrun llvm-cov report "$TEST_BINARY" \
+if [ -f "$COVERAGE_FILE" ] && [ -f "$CORE_LIBRARY" ]; then
+    COVERAGE_OUTPUT=$(xcrun llvm-cov report "$CORE_LIBRARY" \
         -instr-profile="$COVERAGE_FILE" \
         -ignore-filename-regex=".build|Tests" 2>/dev/null || echo "")
 
     if [ -n "$COVERAGE_OUTPUT" ]; then
         # Extract coverage percentages
-        CORE_COVERAGE=$(echo "$COVERAGE_OUTPUT" | awk '/Settings.swift/ {print $4}' | head -1)
+        SETTINGS_COVERAGE=$(echo "$COVERAGE_OUTPUT" | awk '/Settings.swift/ {print $10}' | head -1)
+        SYNC_COVERAGE=$(echo "$COVERAGE_OUTPUT" | awk '/BrightnessSyncManager/ {print $10}' | head -1)
         TOTAL_LINES=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $8}')
         MISSED_LINES=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $9}')
         COVERED_LINES=$((TOTAL_LINES - MISSED_LINES))
         TOTAL_COVERAGE=$(echo "$COVERAGE_OUTPUT" | awk '/TOTAL/ {print $10}')
 
-        echo "  Core library:    ${CORE_COVERAGE:-N/A}"
+        echo "  Core library:"
+        echo "    Settings.swift:          ${SETTINGS_COVERAGE:-N/A}"
+        echo "    BrightnessSyncManager:   ${SYNC_COVERAGE:-N/A}"
         echo "  Total coverage:  ${TOTAL_COVERAGE:-N/A}"
         echo "  Lines covered:   ${COVERED_LINES:-?}/${TOTAL_LINES:-?}"
     else
@@ -565,21 +634,25 @@ else
 fi
 
 {
-    echo "## 8. Code Coverage"
+    echo "## 9. Code Coverage"
+    echo ""
+    echo "| File | Coverage |"
+    echo "|------|----------|"
+    echo "| Settings.swift | ${SETTINGS_COVERAGE:-N/A} |"
+    echo "| BrightnessSyncManager.swift | ${SYNC_COVERAGE:-N/A} |"
+    echo "| **Total (Core Library)** | **${TOTAL_COVERAGE:-N/A}** |"
     echo ""
     echo "| Metric | Value |"
     echo "|--------|-------|"
-    echo "| Core Library (Settings.swift) | ${CORE_COVERAGE:-N/A} |"
-    echo "| Total Coverage | ${TOTAL_COVERAGE:-N/A} |"
     echo "| Lines Covered | ${COVERED_LINES:-?}/${TOTAL_LINES:-?} |"
     echo ""
 } >> "$REPORT_FILE"
 
 # ══════════════════════════════════════════════════════════════════
-# Section 9: Functional Test
+# Section 10: Functional Test
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [9/10] Functional Test"
+echo "▶ [10/11] Functional Test"
 echo "────────────────────────────────────────────────────────────────"
 
 FUNC_TESTS_PASSED=0
@@ -641,7 +714,7 @@ echo ""
 echo "  Functional tests: $FUNC_TESTS_PASSED/$FUNC_TESTS_TOTAL passed"
 
 {
-    echo "## 9. Functional Tests"
+    echo "## 10. Functional Tests"
     echo ""
     echo "| Test | Status |"
     echo "|------|--------|"
@@ -655,10 +728,10 @@ echo "  Functional tests: $FUNC_TESTS_PASSED/$FUNC_TESTS_TOTAL passed"
 } >> "$REPORT_FILE"
 
 # ══════════════════════════════════════════════════════════════════
-# Section 10: Dependencies & Frameworks
+# Section 11: Dependencies & Frameworks
 # ══════════════════════════════════════════════════════════════════
 echo ""
-echo "▶ [10/10] Dependencies & Frameworks"
+echo "▶ [11/11] Dependencies & Frameworks"
 echo "────────────────────────────────────────────────────────────────"
 
 FRAMEWORKS=$(otool -L "$BINARY" 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
@@ -670,7 +743,7 @@ echo "  Private frameworks: $PRIVATE_FRAMEWORKS (dynamically loaded: CoreBrightn
 echo "  External dependencies: 0 (pure Swift/system frameworks)"
 
 {
-    echo "## 8. Dependencies"
+    echo "## 11. Dependencies"
     echo ""
     echo "| Metric | Value |"
     echo "|--------|-------|"

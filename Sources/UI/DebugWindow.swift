@@ -1,8 +1,14 @@
+// swiftlint:disable file_length
+// Rationale: DebugWindow is a self-contained diagnostic UI with many controls.
+// Splitting would complicate the already-lazy-loaded UI module architecture.
+
 import AppKit
 import TwinKleyCore
 
+// Rationale: Debug window contains extensive diagnostic UI - all controls are related.
+// The class is already isolated in a lazy-loaded module to minimize main app footprint.
 /// Debug window controller - dynamically loaded UI component
-@objc public class DebugWindowController: NSWindowController, DebugWindowProtocol {
+@objc public class DebugWindowController: NSWindowController, DebugWindowProtocol { // swiftlint:disable:this type_body_length
 	// UI Controls
 	private var debugToggle: NSButton!
 	private var syncHistoryToggle: NSButton!
@@ -42,7 +48,7 @@ import TwinKleyCore
 		}
 	}
 
-	public override init(window: NSWindow?) {
+	override public init(window: NSWindow?) {
 		super.init(window: window)
 	}
 
@@ -78,7 +84,9 @@ import TwinKleyCore
 		refreshDiagnostics()
 	}
 
-	private func setupUI() {
+	// Rationale: UI setup code creates all controls in a single logical flow.
+	// Splitting would scatter related UI elements and make layout harder to follow.
+	private func setupUI() { // swiftlint:disable:this function_body_length
 		let contentView = NSView(frame: window!.contentView!.bounds)
 		contentView.autoresizingMask = [.width, .height]
 		window!.contentView = contentView
@@ -86,6 +94,7 @@ import TwinKleyCore
 		var yPos: CGFloat = 760
 
 		// MARK: - Debug Logging Section
+
 		let debugSection = createSectionLabel("Debug Logging", at: yPos)
 		contentView.addSubview(debugSection)
 		yPos -= 30
@@ -124,6 +133,7 @@ import TwinKleyCore
 		yPos -= 40
 
 		// MARK: - System Diagnostics Section
+
 		let diagSection = createSectionLabel("System Diagnostics", at: yPos)
 		contentView.addSubview(diagSection)
 		yPos -= 25
@@ -204,6 +214,7 @@ import TwinKleyCore
 		yPos -= 40
 
 		// MARK: - Keypress Capture Section
+
 		let captureSection = createSectionLabel("Keypress Capture", at: yPos)
 		contentView.addSubview(captureSection)
 		yPos -= 30
@@ -374,7 +385,9 @@ import TwinKleyCore
 		}
 	}
 
-	@objc private func refreshDiagnostics() {
+	// Rationale: Diagnostics refresh updates all status fields in one pass.
+	// Each field update is simple; grouping them maintains the refresh logic.
+	@objc private func refreshDiagnostics() { // swiftlint:disable:this function_body_length
 		// Mac model
 		var size = 0
 		sysctlbyname("hw.model", nil, &size, nil, 0)
@@ -433,13 +446,18 @@ import TwinKleyCore
 		accessibilityStatusLabel.textColor = axEnabled ? .systemGreen : .systemRed
 
 		// Power state
-		let power = PowerState.current()
-		if power.isOnBattery {
-			powerStateLabel.stringValue = "Battery \(power.batteryLevel)%"
-			powerStateLabel.textColor = power.isLowBattery ? .systemOrange : .labelColor
+		if let provider = context?.powerSourceProvider {
+			let power = PowerState.current(provider: provider)
+			if power.isOnBattery {
+				powerStateLabel.stringValue = "Battery \(power.batteryLevel)%"
+				powerStateLabel.textColor = power.isLowBattery ? .systemOrange : .labelColor
+			} else {
+				powerStateLabel.stringValue = "AC Power"
+				powerStateLabel.textColor = .systemGreen
+			}
 		} else {
-			powerStateLabel.stringValue = "AC Power"
-			powerStateLabel.textColor = .systemGreen
+			powerStateLabel.stringValue = "Unknown"
+			powerStateLabel.textColor = .secondaryLabelColor
 		}
 
 		// Keyboard IDs
@@ -578,20 +596,20 @@ import TwinKleyCore
 
 	private func keyCodeDescription(_ keyCode: Int) -> String {
 		switch keyCode {
-		case 2: return "(brightness down - legacy)"
-		case 3: return "(brightness up - legacy)"
-		case 6: return "(brightness - M4)"
-		case 7: return "(brightness - wake state)"
-		case 8: return "(volume down)"
-		case 9: return "(volume up)"
-		case 10: return "(mute)"
-		case 14: return "(media/play)"
-		case 16: return "(play/pause)"
-		case 17: return "(fast forward)"
-		case 18: return "(rewind)"
-		case 19: return "(next track)"
-		case 20: return "(previous track)"
-		default: return ""
+		case 2: "(brightness down - legacy)"
+		case 3: "(brightness up - legacy)"
+		case 6: "(brightness - M4)"
+		case 7: "(brightness - wake state)"
+		case 8: "(volume down)"
+		case 9: "(volume up)"
+		case 10: "(mute)"
+		case 14: "(media/play)"
+		case 16: "(play/pause)"
+		case 17: "(fast forward)"
+		case 18: "(rewind)"
+		case 19: "(next track)"
+		case 20: "(previous track)"
+		default: ""
 		}
 	}
 
@@ -668,15 +686,15 @@ import TwinKleyCore
 		countdownLabel.stringValue = "\(remaining)s remaining"
 
 		captureTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
-			guard let self = self else {
+			guard let self else {
 				timer.invalidate()
 				return
 			}
 			remaining -= 1
-			self.countdownLabel.stringValue = "\(remaining)s remaining"
+			countdownLabel.stringValue = "\(remaining)s remaining"
 
 			if remaining <= 0 {
-				self.stopCapture()
+				stopCapture()
 			}
 		}
 	}
@@ -736,33 +754,35 @@ import TwinKleyCore
 		refreshDiagnostics()
 	}
 
-	private func keyCodeToName(_ keyCode: Int) -> String {
+	// Rationale: Switch statement maps key codes to names - inherently has many cases.
+	// A dictionary would be less readable for this debugging/diagnostic context.
+	private func keyCodeToName(_ keyCode: Int) -> String { // swiftlint:disable:this cyclomatic_complexity
 		// Common key codes for reference
 		switch keyCode {
-		case 0: return "A"
-		case 1: return "S"
-		case 2: return "D"
-		case 3: return "F"
-		case 49: return "Space"
-		case 36: return "Return"
-		case 51: return "Delete"
-		case 53: return "Escape"
-		case 48: return "Tab"
-		case 122: return "F1"
-		case 120: return "F2"
-		case 99: return "F3"
-		case 118: return "F4"
-		case 96: return "F5"
-		case 97: return "F6"
-		case 98: return "F7"
-		case 100: return "F8"
-		case 101: return "F9"
-		case 109: return "F10"
-		case 103: return "F11"
-		case 111: return "F12"
-		case 144: return "BrtUp"
-		case 145: return "BrtDown"
-		default: return "key\(keyCode)"
+		case 0: "A"
+		case 1: "S"
+		case 2: "D"
+		case 3: "F"
+		case 49: "Space"
+		case 36: "Return"
+		case 51: "Delete"
+		case 53: "Escape"
+		case 48: "Tab"
+		case 122: "F1"
+		case 120: "F2"
+		case 99: "F3"
+		case 118: "F4"
+		case 96: "F5"
+		case 97: "F6"
+		case 98: "F7"
+		case 100: "F8"
+		case 101: "F9"
+		case 109: "F10"
+		case 103: "F11"
+		case 111: "F12"
+		case 144: "BrtUp"
+		case 145: "BrtDown"
+		default: "key\(keyCode)"
 		}
 	}
 
@@ -814,7 +834,9 @@ import TwinKleyCore
 		return formatter.string(from: Date())
 	}
 
-	private func generateDiagnosticsReport() -> String {
+	// Rationale: Report generation collects all diagnostic data in one place.
+	// This is a self-contained diagnostic dump - splitting would fragment the output logic.
+	private func generateDiagnosticsReport() -> String { // swiftlint:disable:this function_body_length cyclomatic_complexity
 		var report = """
 		═══════════════════════════════════════════════════════════════════
 		TwinK[l]ey Diagnostics Report
@@ -850,8 +872,12 @@ import TwinKleyCore
 		report += "CPU: \(String(cString: cpu))\n"
 
 		// Power state
-		let power = PowerState.current()
-		report += "Power: \(power.isOnBattery ? "Battery (\(power.batteryLevel)%)" : "AC Power")\n"
+		if let provider = context?.powerSourceProvider {
+			let power = PowerState.current(provider: provider)
+			report += "Power: \(power.isOnBattery ? "Battery (\(power.batteryLevel)%)" : "AC Power")\n"
+		} else {
+			report += "Power: Unknown\n"
+		}
 
 		// Hardware capabilities
 		report += """
@@ -1022,8 +1048,8 @@ import TwinKleyCore
 	private func startDiagnosticsRefresh() {
 		// Refresh diagnostics every 2 seconds when window is visible
 		Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-			guard let self = self, self.window?.isVisible == true else { return }
-			self.refreshDiagnostics()
+			guard let self, window?.isVisible == true else { return }
+			refreshDiagnostics()
 		}
 	}
 

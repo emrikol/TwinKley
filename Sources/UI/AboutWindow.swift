@@ -6,7 +6,7 @@ import TwinKleyCore
 	private var context: UIContext?
 	private var onDebugToggle: (() -> Void)?
 
-	@objc public required override init() {
+	@objc override public required init() {
 		super.init()
 	}
 
@@ -19,7 +19,7 @@ import TwinKleyCore
 	/// Set callback for when user double-clicks icon to toggle debug
 	/// Note: handler must be @convention(block) for ObjC runtime compatibility
 	@objc public func setDebugToggleHandler(_ handler: @escaping @convention(block) () -> Void) {
-		self.onDebugToggle = handler
+		onDebugToggle = handler
 	}
 
 	/// Show the About dialog
