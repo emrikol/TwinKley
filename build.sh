@@ -476,7 +476,7 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>SUFeedURL</key>
-    <string>https://github.com/emrikol/TwinKley/releases/download/latest/appcast.xml</string>
+    <string>https://emrikol.github.io/TwinKley/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>RrIa9Qh/+LN89ANE5QLzxKzya+RW9RQDTkKbS0wRWkI=</string>
     <key>SUEnableAutomaticChecks</key>
