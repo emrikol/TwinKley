@@ -99,11 +99,11 @@ APP_NAME="TwinKley"
 APP_DIR="$HOME/Applications/$APP_NAME.app"
 BUNDLE_ID="com.emrikol.$APP_NAME"
 
-# Extract version and build number from Settings.swift (single source of truth)
-BUILD_NUMBER=$(grep 'static let buildNumber = "' Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
+# Extract version and build version from Settings.swift (single source of truth)
+BUILD_VERSION=$(grep 'static let buildVersion = "' Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
 VERSION=$(grep 'static let version = "' Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
-if [ -z "$BUILD_NUMBER" ] || [ -z "$VERSION" ]; then
-	echo "❌ Failed to extract version or build number from Settings.swift"
+if [ -z "$BUILD_VERSION" ] || [ -z "$VERSION" ]; then
+	echo "❌ Failed to extract version or build version from Settings.swift"
 	exit 1
 fi
 
@@ -442,7 +442,7 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
     <key>CFBundleDisplayName</key>
     <string>☀️ TwinK[l]ey ⌨️</string>
     <key>CFBundleVersion</key>
-    <string>$BUILD_NUMBER</string>
+    <string>$BUILD_VERSION</string>
     <key>CFBundleShortVersionString</key>
     <string>$VERSION</string>
     <key>CFBundleIconFile</key>
