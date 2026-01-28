@@ -279,6 +279,73 @@ swift scripts/set_brightness.swift       # Toggle ±10%
 swift scripts/set_brightness.swift 0.5   # Set to 50%
 ```
 
+## Writing CHANGELOG Entries
+
+When preparing a release or updating CHANGELOG.md, **always validate against git history** to ensure accuracy.
+
+### Before Writing CHANGELOG
+
+**Check what actually changed:**
+```bash
+# Compare since last release tag
+git log v1.0.0-beta3..HEAD --oneline
+
+# Detailed changes with file names
+git log v1.0.0-beta3..HEAD --stat
+
+# See actual diff
+git diff v1.0.0-beta3..HEAD
+```
+
+### Validation Process
+
+1. **Review commit history** - Don't rely on memory, check actual commits
+2. **Categorize changes** - Added, Changed, Fixed, Removed, Deprecated
+3. **Cross-reference with git diff** - Verify claimed features actually exist in code
+4. **Check for breaking changes** - API changes, config format changes, etc.
+
+### CHANGELOG Format
+
+Follow [Keep a Changelog](https://keepachangelog.com/):
+
+```markdown
+## [X.Y.Z] - YYYY-MM-DD
+
+### Added
+- New features with brief description
+
+### Changed
+- Changes to existing functionality
+
+### Fixed
+- Bug fixes
+
+### Note
+Optional notes about the release (e.g., "Test release for auto-update")
+```
+
+### Example Workflow
+
+```bash
+# User asks to prepare release
+# 1. Check what changed
+git log v1.0.0-beta3..HEAD --oneline
+
+# 2. Show user the commits and ask them to confirm what to highlight
+# 3. Write CHANGELOG based on actual commits, not assumptions
+
+# 4. Validate: does the CHANGELOG match the code changes?
+git diff v1.0.0-beta3..HEAD -- path/to/changed/files
+```
+
+### Important Rules
+
+- ❌ **Don't guess** what changed - check git history
+- ❌ **Don't claim features** that aren't in the commits
+- ✅ **Always validate** CHANGELOG against `git log` and `git diff`
+- ✅ **Keep it user-focused** - what does this change mean for users?
+- ✅ **Be accurate** - CHANGELOG is a contract with users
+
 ---
 
 ## Key Files Reference
