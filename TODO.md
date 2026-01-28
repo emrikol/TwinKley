@@ -1,17 +1,17 @@
 # TODO
 
-## UX Improvements
+## Completed
 
-### Auto-Update Loading Indicator
-When user clicks "Check for Updates...", show an immediate loading dialog:
-- Display: "Checking for updates..." with spinner
-- Prevents 10-second dead time where nothing appears to happen
-- Sparkle provides delegate methods for this:
-  - `updater:didFindValidUpdate:` - update found
-  - `updaterDidNotFindUpdate:` - no update
-  - `updater:didAbortWithError:` - error
-- Implementation: Add SPUStandardUpdaterControllerDelegate to show progress
+### ✅ Auto-Update Loading Indicator (Completed 2026-01-28)
+~~When user clicks "Check for Updates...", show an immediate loading dialog~~
+- ✅ Displays "Checking for updates..." with spinner immediately
+- ✅ Prevents 10-second dead time
+- ✅ Simple floating window approach (KISS)
+- ✅ Dismisses when Sparkle shows its dialog
 
-**Priority:** Medium (UX polish)
-**Effort:** Small (~30 mins)
+**Implementation:** Added simple 80-line floating window in main.swift
+
+## Current TODOs
+
+*No open TODO items*
 
