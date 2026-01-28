@@ -116,6 +116,15 @@ BUILD_VERSION="${BASE_VERSION}.${BUILD_NUM}"
 
 echo "📦 Version: $VERSION (build version: $BUILD_VERSION)"
 
+# Auto-increment build number locally (GitHub Actions will handle releases)
+if [ -z "$GITHUB_ACTIONS" ]; then
+	NEXT_BUILD_NUM=$((BUILD_NUM + 1))
+	sed -i '' "s/static let buildNumber = ${BUILD_NUM}/static let buildNumber = ${NEXT_BUILD_NUM}/" Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift
+	echo "✨ Auto-incremented buildNumber: ${BUILD_NUM} → ${NEXT_BUILD_NUM}"
+else
+	echo "🤖 GitHub Actions detected - skipping auto-increment (workflow will handle it)"
+fi
+
 if [ "$SKIP_CHECKS" = false ]; then
 	# Step 1: Check formatting
 	echo ""
