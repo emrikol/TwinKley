@@ -9,7 +9,7 @@ public enum AppInfo {
 	/// Build number for Sparkle (auto-incremented by build script)
 	/// Combined with version base for CFBundleVersion (e.g., "1.0.0.2")
 	/// This number always increments regardless of version changes
-	public static let buildNumber = 2
+	public static let buildNumber = 3
 	/// Full app name with emojis for display
 	public static let name = "☀️ TwinK[l]ey ⌨️"
 	/// Short app name for menus
