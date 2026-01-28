@@ -287,12 +287,13 @@ swift scripts/set_brightness.swift 0.5   # Set to 50%
 |------|---------|
 | `NOTES.md` | **LOCAL ONLY** - Technical research, debugging notes (never commit to Git!) |
 | `NEXT-STEPS-RELEASE.md` | **LOCAL ONLY** - Release planning, beta testing checklists (never commit to Git!) |
+| `local_docs/` | **LOCAL ONLY** - Internal documentation (distribution notes, setup guides, etc.) |
+| `local_scripts/` | **LOCAL ONLY** - Helper scripts (certificate export, secret management, etc.) |
 | `CONTRIBUTING.md` | Development setup, code style, testing guide |
-| `DISTRIBUTION-NOTES.md` | App Store/GitHub release guidance |
 | `build.sh` | Builds app bundle with icon optimization |
 | `audit.sh` | Pre-release quality checks |
 
-**IMPORTANT: NOTES.md and NEXT-STEPS-RELEASE.md are for local debugging and planning only. They are gitignored and must never be committed to the repository.**
+**IMPORTANT: Local-only files and directories (`NOTES.md`, `NEXT-STEPS-RELEASE.md`, `local_docs/`, `local_scripts/`) are for development only and are gitignored. Never commit them to the repository.**
 
 ---
 
