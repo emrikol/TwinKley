@@ -1,6 +1,8 @@
 # Contributing to TwinKley
 
-This document covers development setup, code style, testing, and contribution guidelines.
+> **Note:** This repository does not accept public contributions. Pull requests are only accepted from collaborators who have been explicitly added to this repository. If you are not a collaborator, please fork this project and continue development under the GPL-3.0 license.
+
+This document covers development setup, code style, testing, and contribution guidelines for collaborators.
 
 ## Prerequisites
 

@@ -277,6 +277,29 @@ Auto-updates use Sparkle framework and only transmit: app version, macOS version
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
+## Support Policy
+
+**This software is provided as-is with no support.**
+
+- ✅ You may use, modify, and redistribute it freely under the GPL-3.0 license
+- ❌ **No support, bug fixes, or feature requests accepted**
+- ❌ **Issues are disabled** - Please do not contact the maintainer for help
+- ❌ **Pull requests accepted only from collaborators**
+- 💡 **For modifications, please fork** and rename to avoid confusion
+
+### Why This Policy?
+
+TwinK[l]ey uses private macOS frameworks (`CoreBrightness.framework`, `DisplayServices.framework`) that may break in future OS updates. It's designed for M4 MacBook Pro but may work on other Apple Silicon Macs. Supporting all hardware/software combinations is beyond the scope of this project.
+
+**If it works for you: great! If not: please fork it and adapt it to your needs.**
+
+### For Forkers
+
+If you fork and redistribute modified versions:
+- Please use a **different project name and branding** to avoid confusion
+- You must comply with the GPL-3.0 license terms (share source, same license)
+- No attribution to the original maintainer is implied for forks
+
 ## Acknowledgments
 
 - [KBPulse](https://github.com/EthanRDoesMC/KBPulse) - For the KeyboardBrightnessClient approach
