@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta5] - 2026-01-28
+
+### Fixed
+- Update checking window now auto-dismisses when Sparkle dialog appears (no more lingering loading screen)
+
+### Changed
+- Build and audit scripts now use `/Applications` instead of `~/Applications` (proper system location)
+- Removed all `#if !APP_STORE` conditionals (cleaner codebase, App Store impossible with private frameworks)
+- Updated documentation with accurate memory measurements (12MB baseline)
+
 ## [1.0.0-beta4] - 2026-01-28
 
 ### Note

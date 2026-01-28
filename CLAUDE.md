@@ -25,7 +25,7 @@ When trade-offs arise, optimize in this order:
 **Rule**: Before adding any timer, polling loop, or background work, prove no event-driven alternative exists.
 
 ### 2. Memory & Binary Size Efficiency
-- **Minimal footprint**: Target ~11 MB resident memory, ~150 KB binary
+- **Minimal footprint**: Target ~12 MB resident memory, ~150 KB binary
 - **Small binary**: Strip symbols, avoid bloat, question every dependency
 - **Lazy loading**: Load frameworks only when actually used (like Sparkle)
 - **Dynamic loading**: Use `dlopen()` for truly optional components
@@ -100,14 +100,15 @@ The app should be invisible until needed.
 | Target | Value |
 |--------|-------|
 | Binary | ~150 KB |
-| Memory | ~11 MB (base), ~14 MB (when Sparkle loaded) |
+| Memory | ~12 MB (base, with Accessibility granted), ~15-22 MB (with TwinKleyUI loaded) |
 | Idle CPU | 0% |
 | Bundle | ~3.1 MB (includes Sparkle framework ~2.8 MB) |
 
 **Notes:**
 - Binary size includes ~17KB overhead from code signing (required for Accessibility permissions)
-- Sparkle framework adds ~2.8 MB to bundle but loads lazily (only when checking for updates)
-- Memory usage increases by ~3 MB only when user checks for updates or opens Preferences
+- Sparkle framework (~2.8 MB) is linked and loads on startup, but has minimal memory impact
+- TwinKleyUI library (~1 MB) loads on-demand when showing dialogs (Preferences, Debug, first-run Accessibility prompt)
+- Memory footprint increases to ~15-22 MB when TwinKleyUI is loaded (one-time, stays in memory)
 
 ### 4. No Over-Engineering
 Keep it simple. This is a single-purpose utility.

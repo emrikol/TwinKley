@@ -30,7 +30,7 @@ echo ""
 cd "$(dirname "$0")"
 
 APP_NAME="TwinKley"
-APP_DIR="$HOME/Applications/$APP_NAME.app"
+APP_DIR="/Applications/$APP_NAME.app"
 BINARY="$APP_DIR/Contents/MacOS/$APP_NAME"
 REPORT_FILE="/tmp/twinkley-audit-report.txt"
 

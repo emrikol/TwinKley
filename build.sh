@@ -96,7 +96,7 @@ echo "════════════════════════�
 cd "$(dirname "$0")"
 
 APP_NAME="TwinKley"
-APP_DIR="$HOME/Applications/$APP_NAME.app"
+APP_DIR="/Applications/$APP_NAME.app"
 BUNDLE_ID="com.emrikol.$APP_NAME"
 
 # Extract version and build number from Settings.swift (single source of truth)
@@ -570,7 +570,7 @@ if [ "$NOTARIZE" = true ]; then
 		echo "  Stapling ticket to app..."
 		xcrun stapler staple "$APP_DIR"
 		echo "  ✓ App is notarized and stapled"
-		echo "  ℹ️  Users can verify with: spctl -a -vv ~/Applications/$APP_NAME.app"
+		echo "  ℹ️  Users can verify with: spctl -a -vv /Applications/$APP_NAME.app"
 	else
 		echo "  ❌ Notarization failed!"
 		echo ""
@@ -633,7 +633,7 @@ echo "  App:         $APP_DIR"
 echo "  LaunchAgent: $LAUNCH_AGENT_DIR/$BUNDLE_ID.plist"
 echo ""
 echo "Commands:"
-echo "  Start:       open ~/Applications/$APP_NAME.app"
+echo "  Start:       open /Applications/$APP_NAME.app"
 echo "  Auto-start:  launchctl load ~/Library/LaunchAgents/$BUNDLE_ID.plist"
 echo "  Stop auto:   launchctl unload ~/Library/LaunchAgents/$BUNDLE_ID.plist"
 echo ""
