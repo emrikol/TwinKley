@@ -32,7 +32,7 @@ import TwinKleyCore
 		Syncs keyboard backlight brightness
 		to match display brightness.
 
-		© 2024 GPL-3.0 License
+		GPL-3.0 License
 		"""
 		alert.alertStyle = .informational
 		alert.icon = NSApp.applicationIconImage
