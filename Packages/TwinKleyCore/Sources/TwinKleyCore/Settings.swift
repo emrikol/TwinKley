@@ -4,7 +4,9 @@ import Foundation
 
 /// App version information
 public enum AppInfo {
-	/// App version string (e.g., "1.0.0-beta1")
+	/// Numeric build number for Sparkle version comparison (monotonically increasing)
+	public static let buildNumber = "2"
+	/// App version string for display (e.g., "1.0.0-beta1")
 	public static let version = "1.0.0-beta2"
 	/// Full app name with emojis for display
 	public static let name = "☀️ TwinK[l]ey ⌨️"

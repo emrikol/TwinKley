@@ -107,12 +107,12 @@ Or double-click the app in Finder.
 
 Enable:
 ```bash
-launchctl load ~/Library/LaunchAgents/com.local.TwinKley.plist
+launchctl load ~/Library/LaunchAgents/com.emrikol.TwinKley.plist
 ```
 
 Disable:
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.local.TwinKley.plist
+launchctl unload ~/Library/LaunchAgents/com.emrikol.TwinKley.plist
 ```
 
 ### Debug Mode
