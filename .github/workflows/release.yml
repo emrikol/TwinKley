@@ -88,20 +88,16 @@ jobs:
           mkdir -p releases
           cp TwinKley.zip releases/
 
-          # Write private key (no trailing newline)
-          printf '%s' "$SPARKLE_PRIVATE_KEY" > sparkle_key.txt
-
-          # Generate appcast
-          .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
+          # Generate appcast (pipe EdDSA key via stdin)
+          echo "$SPARKLE_PRIVATE_KEY" | .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
             --download-url-prefix "https://github.com/emrikol/TwinKley/releases/download/${{ steps.version.outputs.tag }}/" \
-            -f sparkle_key.txt \
+            --ed-key-file - \
             releases/
 
           # Move appcast to workspace root
           mv releases/appcast.xml .
 
           # Clean up
-          rm -f sparkle_key.txt
           rm -rf releases
 
       - name: Extract release notes from CHANGELOG
