@@ -542,7 +542,7 @@ if [ "$NOTARIZE" = true ]; then
 		--keychain-profile "notarytool" \
 		--wait 2>&1)
 
-	NOTARIZE_STATUS=$(echo "$NOTARIZE_OUTPUT" | grep "status:" | awk '{print $2}')
+	NOTARIZE_STATUS=$(echo "$NOTARIZE_OUTPUT" | grep "status:" | tail -1 | awk '{print $2}')
 
 	if [ "$NOTARIZE_STATUS" = "Accepted" ]; then
 		echo "  ✓ Notarization successful!"
