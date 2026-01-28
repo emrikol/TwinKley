@@ -1208,14 +1208,23 @@ class AppDelegate: NSObject, NSApplicationDelegate { // swiftlint:disable:this t
 	}
 
 	#if !APP_STORE
+	// Loading window shown while checking for updates
+	private var updateCheckWindow: NSWindow?
+
 	@objc
 	private func checkForUpdates() {
+		// Show loading indicator immediately
+		showUpdateCheckingWindow()
+
 		// Show privacy notice on first update check (dialog in UI library)
 		if !settings.hasAcknowledgedUpdatePrivacy {
 			if let loader = getUILoader() {
 				// Use typed objc_msgSend for reliable Bool return
 				let selector = NSSelectorFromString("showUpdatePrivacyNotice")
-				guard loader.responds(to: selector) else { return }
+				guard loader.responds(to: selector) else {
+					dismissUpdateCheckingWindow()
+					return
+				}
 				typealias ShowPrivacyFunc = @convention(c) (AnyObject, Selector) -> Bool
 				let msgSend = unsafeBitCast(dlsym(dlopen(nil, RTLD_NOW), "objc_msgSend"), to: ShowPrivacyFunc.self)
 				let shouldProceed = msgSend(loader, selector)
@@ -1223,11 +1232,62 @@ class AppDelegate: NSObject, NSApplicationDelegate { // swiftlint:disable:this t
 					settings.hasAcknowledgedUpdatePrivacy = true
 					saveSettings()
 					updaterController.updater.checkForUpdates()
+					// Sparkle will show its own dialog, dismiss our loading window after a delay
+					DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+						self?.dismissUpdateCheckingWindow()
+					}
+				} else {
+					dismissUpdateCheckingWindow()
 				}
 			}
 		} else {
 			updaterController.updater.checkForUpdates()
+			// Sparkle will show its own dialog, dismiss our loading window after a delay
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+				self?.dismissUpdateCheckingWindow()
+			}
 		}
+	}
+
+	private func showUpdateCheckingWindow() {
+		// Create simple loading window with spinner
+		let window = NSWindow(
+			contentRect: NSRect(x: 0, y: 0, width: 300, height: 100),
+			styleMask: [.titled],
+			backing: .buffered,
+			defer: false
+		)
+		window.title = "TwinK[l]ey"
+		window.isReleasedWhenClosed = false
+		window.level = .floating
+		window.center()
+
+		// Create content view with spinner and label
+		let contentView = NSView(frame: window.contentRect(forFrameRect: window.frame))
+		contentView.wantsLayer = true
+
+		// Progress indicator (spinner)
+		let spinner = NSProgressIndicator(frame: NSRect(x: 130, y: 50, width: 32, height: 32))
+		spinner.style = .spinning
+		spinner.startAnimation(nil)
+		contentView.addSubview(spinner)
+
+		// Label
+		let label = NSTextField(labelWithString: "Checking for updates...")
+		label.frame = NSRect(x: 20, y: 20, width: 260, height: 20)
+		label.alignment = .center
+		label.font = .systemFont(ofSize: 13)
+		contentView.addSubview(label)
+
+		window.contentView = contentView
+		window.makeKeyAndOrderFront(nil)
+
+		updateCheckWindow = window
+	}
+
+	private func dismissUpdateCheckingWindow() {
+		updateCheckWindow?.close()
+		updateCheckWindow = nil
 	}
 	#endif
 
