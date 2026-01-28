@@ -91,7 +91,11 @@ jobs:
           mkdir -p releases
           cp TwinKley.zip releases/
 
+          # Download existing appcast if it exists (so we can append to it)
+          curl -f -s -o releases/appcast.xml https://emrikol.github.io/TwinKley/appcast.xml || echo "No existing appcast"
+
           # Generate appcast (pipe EdDSA key via stdin)
+          # If appcast.xml exists in releases/, generate_appcast will update it
           echo "$SPARKLE_PRIVATE_KEY" | .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
             --download-url-prefix "https://github.com/emrikol/TwinKley/releases/download/${{ steps.version.outputs.tag }}/" \
             --ed-key-file - \
