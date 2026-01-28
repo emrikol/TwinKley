@@ -15,47 +15,25 @@ A lightweight macOS menu bar app that synchronizes your keyboard backlight brigh
 
 ## Screenshots
 
-### Preferences Window
-
-<details>
-<summary><strong>Sync Settings</strong></summary>
-
-![Sync Settings](docs/images/preferences-sync.png)
-
-Control Live Sync and Timed Sync behavior, battery-aware options.
-</details>
-
-<details>
-<summary><strong>Advanced Settings</strong></summary>
-
-![Advanced Settings](docs/images/preferences-advanced.png)
-
-Adjust gamma correction for brightness curve customization.
-</details>
-
-<details>
-<summary><strong>Updates & Privacy</strong></summary>
-
-![Updates & Privacy](docs/images/preferences-updates.png)
-
-Configure auto-updates and view privacy information.
-</details>
-
-### Debug Window
-
-<details>
-<summary><strong>System Status & Sync History</strong></summary>
-
-![Debug Window](docs/images/debug-window.png)
-
-Monitor system status, permissions, and real-time sync activity. Access via double-clicking the app icon in About dialog.
-</details>
-
 ### Menu Bar
 
 ![TwinKley Menu](docs/images/menubar-menu.png)
 
-Quick access to sync controls, preferences, and status information.
+### Preferences Window - Sync Settings
+
+![Sync Settings](docs/images/preferences-sync.png)
+
+### Preferences Window - Advanced Settings
+
+![Advanced Settings](docs/images/preferences-advanced.png)
+
+### Preferences Window - Updates & Privacy
+
+![Updates & Privacy](docs/images/preferences-updates.png)
+
+### Debug Window
+
+![Debug Window](docs/images/debug-window.png)
 
 ### How It Works
 
