@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta3] - 2026-01-28
+
+### Added
+- DMG installer for easy drag-to-Applications installation
+- Auto-incrementing build numbers (local and CI)
+
+### Fixed
+- Appcast URL now points to GitHub Pages (was broken in beta1/beta2)
+
+### Changed
+- Build version system: separate display version from Sparkle build number
+- Local builds auto-increment, GitHub Actions handles canonical release versions
+
+### Note
+First release with working auto-update system and proper DMG installer.
+
 ## [1.0.0-beta2] - 2026-01-27
 
 ### Added
