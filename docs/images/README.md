@@ -1,66 +1,23 @@
-# Screenshots Needed for Release
+# TwinKley Screenshots
 
-This directory will contain screenshots for the README.
+This directory contains screenshots for the README and documentation.
 
-## Required Screenshots
+## Files
 
-### 1. preferences-screenshot.png
-**What to capture:**
-- Launch TwinKley.app
-- Open Preferences (menu bar icon → Preferences)
-- Take a screenshot showing:
-  - Menu bar icon visible in top-right
-  - Preferences window with all tabs visible
-  - Clean, professional appearance
+- **preferences-sync.png** - Preferences window, Sync tab (Live/Timed sync controls)
+- **preferences-advanced.png** - Preferences window, Advanced tab (Gamma correction)
+- **preferences-updates.png** - Preferences window, Updates & Privacy tab
+- **debug-window.png** - Debug window showing system status and sync history
+- **menubar-menu.png** - TwinKley menu bar menu
 
-**Recommended size:** At least 1200px wide for clarity
+## Usage in README
 
-**How to capture:**
-```bash
-# Launch the app
-open ~/Applications/TwinKley.app
+Screenshots are referenced in the main README.md to show users what the app looks like.
 
-# Open Preferences window
-# Click menu bar icon → Preferences
+## Regenerating Screenshots
 
-# Take screenshot (⌘+Shift+4, then Space to capture window)
-# Save to: docs/images/preferences-screenshot.png
-```
+To capture new screenshots:
 
-### 2. sync-demo.gif (Optional but Recommended)
-**What to capture:**
-- Record a short video showing:
-  1. Brightness keys being pressed (or Control Center slider being adjusted)
-  2. Display brightness changing
-  3. Keyboard backlight syncing to match
-
-**Recommended tool:** [Kap](https://getkap.co/) or QuickTime + GIF converter
-
-**Duration:** 5-10 seconds
-
-**How to create:**
-```bash
-# Install Kap (if not already installed)
-brew install --cask kap
-
-# Record the demo
-# 1. Open Kap
-# 2. Select screen area (show keyboard and brightness controls)
-# 3. Press Record
-# 4. Adjust brightness using keys or Control Center
-# 5. Stop recording
-# 6. Export as GIF
-# 7. Save to: docs/images/sync-demo.gif
-```
-
-## After Creating Screenshots
-
-Update the main README.md to reference the actual screenshot files instead of placeholders.
-
-## Tips for Good Screenshots
-
-1. **Clean desktop:** Hide unnecessary windows and icons
-2. **Good lighting:** Ensure keyboard backlight is visible
-3. **High resolution:** Use Retina display capture
-4. **Readable text:** All UI elements should be clearly legible
-5. **No sensitive data:** Remove any personal information from view
+1. Launch TwinKley
+2. Use `screencapture -o -W filename.png` to capture a specific window
+3. Or use the automated script in `local_scripts/` (if created)
