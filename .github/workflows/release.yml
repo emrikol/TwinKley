@@ -56,7 +56,7 @@ jobs:
 
       - name: Create distribution ZIP
         run: |
-          cd ~/Applications
+          cd /Applications
           ditto -c -k --keepParent TwinKley.app TwinKley.zip
           mv TwinKley.zip $GITHUB_WORKSPACE/
 
@@ -64,7 +64,7 @@ jobs:
         run: |
           # Create temporary folder for DMG contents
           mkdir -p dmg-temp
-          cp -R ~/Applications/TwinKley.app dmg-temp/
+          cp -R /Applications/TwinKley.app dmg-temp/
           ln -s /Applications dmg-temp/Applications
 
           # Create DMG
