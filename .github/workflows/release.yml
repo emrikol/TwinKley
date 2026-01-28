@@ -88,8 +88,8 @@ jobs:
           mkdir -p releases
           cp TwinKley.zip releases/
 
-          # Write private key
-          echo "$SPARKLE_PRIVATE_KEY" > sparkle_key.txt
+          # Write private key (no trailing newline)
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > sparkle_key.txt
 
           # Generate appcast
           .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
