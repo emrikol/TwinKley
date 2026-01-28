@@ -30,7 +30,7 @@ final class AppInfoTests: XCTestCase {
 	}
 
 	func testAppIdentifier() {
-		XCTAssertEqual(AppInfo.identifier, "com.local.TwinKley")
+		XCTAssertEqual(AppInfo.identifier, "com.emrikol.TwinKley")
 		XCTAssertTrue(AppInfo.identifier.contains("."))
 	}
 
