@@ -3,12 +3,12 @@
     <channel>
         <title>TwinKley</title>
         <item>
-            <title>1.0.0-beta1</title>
-            <pubDate>Wed, 28 Jan 2026 01:55:14 +0000</pubDate>
-            <sparkle:version>1.0.0-beta1</sparkle:version>
-            <sparkle:shortVersionString>1.0.0-beta1</sparkle:shortVersionString>
+            <title>1.0.0-beta2</title>
+            <pubDate>Wed, 28 Jan 2026 03:43:17 +0000</pubDate>
+            <sparkle:version>1.0.0-beta2</sparkle:version>
+            <sparkle:shortVersionString>1.0.0-beta2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/emrikol/TwinKley/releases/download/v1.0.0-beta1/TwinKley.zip" length="1194649" type="application/octet-stream" sparkle:edSignature="NtU08aj9evaj+q4uNLM6WONa2C95QY6aRs6qncPbh59dYetrMeJL7Ek8LwlzydKHqTr6EDYFUcnKx043wBinDw=="/>
+            <enclosure url="https://github.com/emrikol/TwinKley/releases/download/v1.0.0-beta2/TwinKley.zip" length="1194672" type="application/octet-stream" sparkle:edSignature="rxKqrl+3YC4Dvk01I5CEVDfuEYVmB3/7p7jbMcDRrkcrA101k0ixCBcSUp9TWFUPpAluR02kbOh36wLrxPWYAg=="/>
         </item>
     </channel>
 </rss>
