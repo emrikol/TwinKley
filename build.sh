@@ -99,13 +99,28 @@ APP_NAME="TwinKley"
 APP_DIR="$HOME/Applications/$APP_NAME.app"
 BUNDLE_ID="com.emrikol.$APP_NAME"
 
-# Extract version and build version from Settings.swift (single source of truth)
-BUILD_VERSION=$(grep 'static let buildVersion = "' Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
+# Extract version and build number from Settings.swift (single source of truth)
 VERSION=$(grep 'static let version = "' Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift | sed 's/.*"\(.*\)".*/\1/')
-if [ -z "$BUILD_VERSION" ] || [ -z "$VERSION" ]; then
-	echo "❌ Failed to extract version or build version from Settings.swift"
+BUILD_NUM=$(grep 'static let buildNumber = ' Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift | sed 's/.*= \([0-9]*\).*/\1/')
+
+if [ -z "$VERSION" ] || [ -z "$BUILD_NUM" ]; then
+	echo "❌ Failed to extract version or buildNumber from Settings.swift"
 	exit 1
 fi
+
+# Extract base version (major.minor.patch) by stripping any suffix like -beta2, -rc1
+BASE_VERSION=$(sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/' <<< "$VERSION")
+
+# Combine for Sparkle: major.minor.patch.buildNumber
+BUILD_VERSION="${BASE_VERSION}.${BUILD_NUM}"
+
+echo "📦 Version: $VERSION (build version: $BUILD_VERSION)"
+
+# Auto-increment build number for next build and write back to Settings.swift
+NEXT_BUILD_NUM=$((BUILD_NUM + 1))
+sed -i '' "s/static let buildNumber = ${BUILD_NUM}/static let buildNumber = ${NEXT_BUILD_NUM}/" Packages/TwinKleyCore/Sources/TwinKleyCore/Settings.swift
+
+echo "✨ Auto-incremented buildNumber: ${BUILD_NUM} → ${NEXT_BUILD_NUM}"
 
 if [ "$SKIP_CHECKS" = false ]; then
 	# Step 1: Check formatting
