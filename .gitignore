@@ -49,3 +49,7 @@ NOTES.md
 node_modules/
 package-lock.json
 NEXT-STEPS-RELEASE.md
+
+# Local secrets reference (contains actual values)
+GITHUB-SECRETS-CHECKLIST.txt
+
