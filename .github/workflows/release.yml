@@ -76,17 +76,11 @@ jobs:
           # Convert to read-write for signing
           hdiutil convert TwinKley-temp.dmg -format UDRW -o TwinKley-rw.dmg
 
-          # Sign the DMG
-          codesign --force --sign "Developer ID Application" TwinKley-rw.dmg
-
-          # Convert back to compressed read-only
-          hdiutil convert TwinKley-rw.dmg -format UDZO -o TwinKley.dmg
-
-          # Staple notarization ticket to DMG
-          xcrun stapler staple TwinKley.dmg
+          # Convert back to compressed read-only (no need to sign DMG - app inside is already signed/notarized)
+          hdiutil convert TwinKley-temp.dmg -format UDZO -o TwinKley.dmg
 
           # Clean up
-          rm -f TwinKley-temp.dmg TwinKley-rw.dmg
+          rm -f TwinKley-temp.dmg
           rm -rf dmg-temp
 
       - name: Sign update with Sparkle
