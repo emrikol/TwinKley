@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta2] - 2026-01-27
+
+### Added
+- Screenshots in README showing all UI elements
+- Comprehensive release guide in local_docs/RELEASE-GUIDE.md
+
+### Changed
+- README now includes visual documentation of features
+
+### Note
+This is a test release to verify auto-update functionality works correctly.
+
 ## [1.0.0-beta1] - 2026-01-27
 
 ### Added

@@ -5,13 +5,13 @@ import Foundation
 /// App version information
 public enum AppInfo {
 	/// App version string (e.g., "1.0.0-beta1")
-	public static let version = "1.0.0-beta1"
+	public static let version = "1.0.0-beta2"
 	/// Full app name with emojis for display
 	public static let name = "☀️ TwinK[l]ey ⌨️"
 	/// Short app name for menus
 	public static let shortName = "TwinK[l]ey"
 	/// Bundle identifier
-	public static let identifier = "com.local.TwinKley"
+	public static let identifier = "com.emrikol.TwinKley"
 	/// GitHub repository URL
 	public static let githubURL = "https://github.com/emrikol/TwinKley"
 }
