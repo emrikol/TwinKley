@@ -101,19 +101,18 @@ jobs:
           if curl -f -s -o old-appcast.xml https://emrikol.github.io/TwinKley/appcast.xml; then
             echo "Merging with existing appcast..."
 
-            # Extract new <item> from generated appcast (releases/appcast.xml)
-            NEW_ITEM=$(sed -n '/<item>/,/<\/item>/p' releases/appcast.xml)
+            # Extract new <item> from generated appcast to a file
+            sed -n '/<item>/,/<\/item>/p' releases/appcast.xml > new-item.xml
 
-            # Insert new item at the beginning of the existing appcast (after <channel> tag)
-            # This ensures newest version appears first
-            awk -v new_item="$NEW_ITEM" '
-              /<channel>/ {
-                print
-                print new_item
-                next
-              }
-              {print}
-            ' old-appcast.xml > appcast.xml
+            # Split old appcast at <channel> tag and insert new item
+            # Get everything before and including <channel>
+            sed -n '1,/<channel>/p' old-appcast.xml > appcast.xml
+
+            # Add new item
+            cat new-item.xml >> appcast.xml
+
+            # Add everything after <channel> from old appcast
+            sed -n '/<channel>/,$p' old-appcast.xml | tail -n +2 >> appcast.xml
 
             echo "Merged appcast created"
           else
@@ -122,7 +121,7 @@ jobs:
           fi
 
           # Clean up
-          rm -rf releases old-appcast.xml
+          rm -rf releases old-appcast.xml new-item.xml
 
       - name: Extract release notes from CHANGELOG
         id: release_notes
