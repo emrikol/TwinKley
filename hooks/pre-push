@@ -1,0 +1,65 @@
+#!/bin/bash
+# Pre-push hook: Validates CHANGELOG.md when pushing version tags
+#
+# Install: cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+#
+# This hook runs automatically before `git push` and checks if you're pushing
+# a version tag. If so, it validates that CHANGELOG.md has been updated.
+
+# Read stdin which contains: <local ref> <local sha> <remote ref> <remote sha>
+while read local_ref local_sha remote_ref remote_sha; do
+	# Check if this is a tag push
+	if [[ "$local_ref" =~ refs/tags/ ]]; then
+		TAG_NAME="${local_ref#refs/tags/}"
+
+		# Only check version tags (v1.0.0, v1.0.0-beta1, etc.)
+		if [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+			VERSION="${TAG_NAME#v}"
+
+			echo "🔍 Validating CHANGELOG.md for version tag: $TAG_NAME"
+			echo ""
+
+			# Check if CHANGELOG.md exists
+			if [ ! -f CHANGELOG.md ]; then
+				echo "❌ ERROR: CHANGELOG.md not found!"
+				echo ""
+				echo "Please create CHANGELOG.md before pushing version tags."
+				exit 1
+			fi
+
+			# Check if version exists in CHANGELOG
+			if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+				echo "❌ ERROR: Version $VERSION not found in CHANGELOG.md!"
+				echo ""
+				echo "Please add a CHANGELOG entry for $VERSION before pushing the tag."
+				echo ""
+				echo "Recommended: Use the helper script instead:"
+				echo "  ./scripts/create-release-tag.sh $TAG_NAME \"Release message\""
+				echo ""
+				exit 1
+			fi
+
+			# Check if version has TBD date
+			if grep -q "## \[$VERSION\] - TBD" CHANGELOG.md; then
+				echo "❌ ERROR: Version $VERSION has 'TBD' date in CHANGELOG.md"
+				echo ""
+				echo "Please update the date to today: $(date +%Y-%m-%d)"
+				exit 1
+			fi
+
+			# Check if CHANGELOG has the version with a proper date
+			if ! grep -q "## \[$VERSION\] - [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}" CHANGELOG.md; then
+				echo "❌ ERROR: Version $VERSION in CHANGELOG.md has invalid or missing date"
+				echo ""
+				echo "Expected format: ## [$VERSION] - YYYY-MM-DD"
+				echo "Example: ## [$VERSION] - $(date +%Y-%m-%d)"
+				exit 1
+			fi
+
+			echo "✅ CHANGELOG.md validated for $TAG_NAME"
+			echo ""
+		fi
+	fi
+done
+
+exit 0

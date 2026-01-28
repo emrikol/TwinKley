@@ -346,6 +346,24 @@ git diff v1.0.0-beta3..HEAD -- path/to/changed/files
 - ✅ **Keep it user-focused** - what does this change mean for users?
 - ✅ **Be accurate** - CHANGELOG is a contract with users
 
+### Enforcing CHANGELOG Updates
+
+**Use the release tag script** instead of creating tags manually:
+
+```bash
+# This script validates CHANGELOG before creating tags
+./scripts/create-release-tag.sh v1.0.0-beta5 "Release v1.0.0-beta5"
+```
+
+**The script checks:**
+- ✅ CHANGELOG.md has entry for the version
+- ✅ CHANGELOG.md has proper date (not TBD)
+- ✅ CHANGELOG.md is committed (no uncommitted changes)
+- ✅ Settings.swift version matches tag version
+- ✅ Working directory is clean
+
+**Don't create tags manually** - always use the script to ensure CHANGELOG is updated.
+
 ---
 
 ## Key Files Reference
@@ -440,13 +458,22 @@ Or use `./build.sh -r` to reset permissions and open System Settings.
 
 ### Git Hook Setup
 
-Install the pre-commit hook to prevent accidentally committing NOTES.md:
+Install git hooks for safety and validation:
+
 ```bash
-cp hooks/pre-commit .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
+# Install all hooks at once
+./scripts/install-hooks.sh
+
+# Or install individually:
+cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit  # Prevents committing NOTES.md
+cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push        # Validates CHANGELOG on tag push
 ```
 
-This adds an extra safety layer beyond .gitignore.
+**Hooks:**
+- **pre-commit** - Prevents accidentally committing local-only files (NOTES.md, etc.)
+- **pre-push** - Validates CHANGELOG.md when pushing version tags (enforces CHANGELOG updates)
+
+This adds automatic enforcement beyond .gitignore and manual processes.
 
 ---
 
