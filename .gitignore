@@ -38,6 +38,11 @@ icon_sources/
 
 # Internal documentation (keep local only)
 NOTES.md
+NEXT-STEPS-RELEASE.md
+
+# Local-only scripts and documentation (never commit)
+local_scripts/
+local_docs/
 
 # Claude Code project files (local state/cache)
 .claude/
@@ -48,8 +53,4 @@ NOTES.md
 # Node modules (if any tooling is added)
 node_modules/
 package-lock.json
-NEXT-STEPS-RELEASE.md
-
-# Local secrets reference (contains actual values)
-GITHUB-SECRETS-CHECKLIST.txt
 
