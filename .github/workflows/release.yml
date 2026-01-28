@@ -60,6 +60,35 @@ jobs:
           ditto -c -k --keepParent TwinKley.app TwinKley.zip
           mv TwinKley.zip $GITHUB_WORKSPACE/
 
+      - name: Create DMG installer
+        run: |
+          # Create temporary folder for DMG contents
+          mkdir -p dmg-temp
+          cp -R ~/Applications/TwinKley.app dmg-temp/
+          ln -s /Applications dmg-temp/Applications
+
+          # Create DMG
+          hdiutil create -volname "TwinKley" \
+            -srcfolder dmg-temp \
+            -ov -format UDZO \
+            TwinKley-temp.dmg
+
+          # Convert to read-write for signing
+          hdiutil convert TwinKley-temp.dmg -format UDRW -o TwinKley-rw.dmg
+
+          # Sign the DMG
+          codesign --force --sign "Developer ID Application" TwinKley-rw.dmg
+
+          # Convert back to compressed read-only
+          hdiutil convert TwinKley-rw.dmg -format UDZO -o TwinKley.dmg
+
+          # Staple notarization ticket to DMG
+          xcrun stapler staple TwinKley.dmg
+
+          # Clean up
+          rm -f TwinKley-temp.dmg TwinKley-rw.dmg
+          rm -rf dmg-temp
+
       - name: Sign update with Sparkle
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
@@ -142,6 +171,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
+            TwinKley.dmg
             TwinKley.zip
             appcast.xml
           body_path: release_notes.md
