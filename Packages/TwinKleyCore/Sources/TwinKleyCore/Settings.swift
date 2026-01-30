@@ -5,11 +5,11 @@ import Foundation
 /// App version information
 public enum AppInfo {
 	/// Display version string (e.g., "1.0.0-beta2", "1.0.0", "1.1.0")
-	public static let version = "1.0.0-beta5"
+	public static let version = "1.0.0-beta6"
 	/// Build number for Sparkle (auto-incremented by build script)
 	/// Combined with version base for CFBundleVersion (e.g., "1.0.0.2")
 	/// This number always increments regardless of version changes
-	public static let buildNumber = 25
+	public static let buildNumber = 27
 	/// Full app name with emojis for display
 	public static let name = "☀️ TwinK[l]ey ⌨️"
 	/// Short app name for menus
@@ -40,6 +40,8 @@ public struct Settings: Codable, Equatable {
 	public var hasLaunchedBefore: Bool
 	/// User acknowledged GitHub privacy notice
 	public var hasAcknowledgedUpdatePrivacy: Bool
+	/// NX_SYSDEFINED keyCodes to treat as brightness events
+	public var brightnessKeyCodes: [Int]
 
 	/// Minimum allowed polling interval (ms)
 	public static let intervalMin = 100
@@ -54,6 +56,8 @@ public struct Settings: Codable, Equatable {
 	public static let gammaMax = 4.0
 	/// Default gamma value - 1.5 = mild correction (recommended)
 	public static let gammaDefault = 1.5
+	/// Default brightness keyCodes (2/3=legacy, 6=M4, 7=wake states)
+	public static let brightnessKeyCodesDefault = [2, 3, 6, 7]
 
 	/// Default settings
 	public static let `default` = Settings(
@@ -64,7 +68,8 @@ public struct Settings: Codable, Equatable {
 		pauseTimedSyncOnLowBattery: true,
 		brightnessGamma: gammaDefault,
 		hasLaunchedBefore: false,
-		hasAcknowledgedUpdatePrivacy: false
+		hasAcknowledgedUpdatePrivacy: false,
+		brightnessKeyCodes: brightnessKeyCodesDefault
 	)
 
 	/// Creates settings with the given values
@@ -77,6 +82,7 @@ public struct Settings: Codable, Equatable {
 	///   - brightnessGamma: Gamma correction (default: 1.5)
 	///   - hasLaunchedBefore: First run tracking (default: false)
 	///   - hasAcknowledgedUpdatePrivacy: Privacy acknowledged (default: false)
+	///   - brightnessKeyCodes: NX keyCodes to treat as brightness events
 	public init(
 		liveSyncEnabled: Bool = true,
 		timedSyncEnabled: Bool = false,
@@ -85,7 +91,8 @@ public struct Settings: Codable, Equatable {
 		pauseTimedSyncOnLowBattery: Bool = true,
 		brightnessGamma: Double = gammaDefault,
 		hasLaunchedBefore: Bool = false,
-		hasAcknowledgedUpdatePrivacy: Bool = false
+		hasAcknowledgedUpdatePrivacy: Bool = false,
+		brightnessKeyCodes: [Int] = brightnessKeyCodesDefault
 	) {
 		self.liveSyncEnabled = liveSyncEnabled
 		self.timedSyncEnabled = timedSyncEnabled
@@ -95,6 +102,7 @@ public struct Settings: Codable, Equatable {
 		self.brightnessGamma = Self.clampGamma(brightnessGamma)
 		self.hasLaunchedBefore = hasLaunchedBefore
 		self.hasAcknowledgedUpdatePrivacy = hasAcknowledgedUpdatePrivacy
+		self.brightnessKeyCodes = brightnessKeyCodes
 	}
 
 	// MARK: - Custom Codable (clamp values on decode)
@@ -108,6 +116,7 @@ public struct Settings: Codable, Equatable {
 		case brightnessGamma
 		case hasLaunchedBefore
 		case hasAcknowledgedUpdatePrivacy
+		case brightnessKeyCodes
 	}
 
 	/// Custom decoder that clamps values to valid ranges
@@ -132,6 +141,7 @@ public struct Settings: Codable, Equatable {
 
 		hasLaunchedBefore = try container.decodeIfPresent(Bool.self, forKey: .hasLaunchedBefore) ?? defaults.hasLaunchedBefore
 		hasAcknowledgedUpdatePrivacy = try container.decodeIfPresent(Bool.self, forKey: .hasAcknowledgedUpdatePrivacy) ?? defaults.hasAcknowledgedUpdatePrivacy
+		brightnessKeyCodes = try container.decodeIfPresent([Int].self, forKey: .brightnessKeyCodes) ?? defaults.brightnessKeyCodes
 	}
 
 	/// Clamp interval to valid range

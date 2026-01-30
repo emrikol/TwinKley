@@ -155,6 +155,36 @@ Settings are stored in `~/.twinkley.json`:
 | `pauseTimedSyncOnLowBattery` | Pause polling when battery < 20% | `true` |
 | `brightnessGamma` | Gamma correction for brightness curve (0.5-4.0) | `1.5` |
 
+### Advanced Configuration
+
+<details>
+<summary><strong>Custom Brightness Key Codes</strong></summary>
+
+TwinKley detects brightness changes by listening for macOS `NX_SYSDEFINED` events with specific key codes. Different Mac models may use different codes:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `brightnessKeyCodes` | Array of NX key codes to treat as brightness events | `[2, 3, 6, 7]` |
+
+**Default key codes:**
+- `2`, `3` - Legacy brightness keys (older Macs)
+- `6` - M4 MacBook Pro brightness events
+- `7` - Wake/power state brightness events
+
+**When to customize:**
+If brightness detection isn't working on your Mac, use the Debug Window's "Capture Events" feature to see which key codes your system generates, then add them to this array.
+
+**Example - adding a custom key code:**
+```json
+{
+  "brightnessKeyCodes": [2, 3, 6, 7, 31]
+}
+```
+
+*Note: Restart TwinKley after changing this setting.*
+
+</details>
+
 ### Brightness Gamma Correction
 
 **TL;DR:** The default gamma of 1.5 dims the keyboard at low display brightness levels. Adjust if needed.
@@ -275,9 +305,37 @@ TwinKley is designed to be invisible to your battery. We benchmarked both sync m
 ./scripts/benchmark-sync-modes.sh 60
 ```
 
+## Troubleshooting
+
+<details>
+<summary><strong>Brightness keys not detected after rebuild/update</strong></summary>
+
+macOS caches code signing information in the TCC (Transparency, Consent, and Control) database. If you rebuild TwinKley or the code signature changes, the cached permission may become stale.
+
+**Fix:** Toggle Accessibility permission off and on:
+1. Open **System Settings** → **Privacy & Security** → **Accessibility**
+2. Find TwinKley and turn it **OFF**
+3. Turn it back **ON**
+4. Restart TwinKley
+
+This refreshes the code signing validation in the TCC database.
+
+</details>
+
+<details>
+<summary><strong>Debug brightness detection issues</strong></summary>
+
+1. Enable debug mode (double-click the icon in About dialog)
+2. Open the Debug Window from the menu bar
+3. Click "Capture Events" and press brightness keys
+4. Check which key codes are generated
+5. Add any missing codes to `brightnessKeyCodes` in `~/.twinkley.json`
+
+</details>
+
 ## Technical Notes
 
-- M4 MacBooks use `keyCode=6` for display brightness keys (different from older Macs which use codes 2/3)
+- M4 MacBooks use `keyCode=6` or `keyCode=7` for display brightness events (different from older Macs which use codes 2/3)
 - The app requires Accessibility permissions for the event tap to function
 - See `NOTES.md` for detailed research notes on the implementation
 

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta6] - 2026-01-30
+
+### Added
+- Configurable `brightnessKeyCodes` setting for custom brightness event detection
+- Troubleshooting documentation for TCC permission issues
+
+### Fixed
+- Documented fix for stale Accessibility permissions after code signature changes
+
+### Changed
+- Brightness key detection now reads from settings instead of hardcoded values
+
 ## [1.0.0-beta5] - 2026-01-28
 
 ### Fixed

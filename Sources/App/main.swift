@@ -393,9 +393,8 @@ class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 	// Event tap health tracking
 	var health = EventTapHealth()
 
-	// NX key types for brightness (from IOKit/hidsystem/ev_keymap.h)
-	private let nxKeytypeBrightnessUp: Int64 = 2
-	private let nxKeytypeBrightnessDown: Int64 = 3
+	// NX keyCodes to treat as brightness events (configurable via settings)
+	var brightnessKeyCodes: [Int] = Settings.brightnessKeyCodesDefault
 
 	func start() -> Bool {
 		health.createdTimestamp = Date()
@@ -507,9 +506,8 @@ class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 				self?.onEventCaptured?("NX", keyCode, keyState)
 			}
 
-			// Check if it's brightness
-			// keyCode 2/3 = older Macs, 6 = M4, 7 = some wake/power states
-			if keyCode == Int(nxKeytypeBrightnessUp) || keyCode == Int(nxKeytypeBrightnessDown) || keyCode == 6 || keyCode == 7 {
+			// Check if it's brightness (keyCodes configurable via ~/.twinkley.json)
+			if brightnessKeyCodes.contains(keyCode) {
 				health.brightnessEventsReceived += 1
 				debugLog("Brightness event detected (keyCode=\(keyCode))")
 				DispatchQueue.main.async { [weak self] in
@@ -888,6 +886,7 @@ class AppDelegate: NSObject, NSApplicationDelegate { // swiftlint:disable:this t
 
 	private func setupBrightnessMonitor() {
 		keyMonitor = BrightnessKeyMonitor()
+		keyMonitor?.brightnessKeyCodes = settings.brightnessKeyCodes
 		keyMonitor?.onBrightnessKeyPressed = { [weak self] in
 			guard let self, settings.liveSyncEnabled else { return }
 			// Small delay to let macOS process the brightness change first
