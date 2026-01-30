@@ -334,18 +334,27 @@ This refreshes the code signing validation in the TCC database.
 </details>
 
 <details>
-<summary><strong>Keyboard brightness locked by macOS</strong></summary>
+<summary><strong>Keyboard brightness "suppressed" by macOS</strong></summary>
 
-Sometimes macOS locks the keyboard backlight and prevents all adjustments - both manual (Control Center slider) and automatic (TwinKley). This appears to be triggered by the ambient light sensor when macOS decides backlight isn't needed.
+Sometimes macOS **suppresses** the keyboard backlight and prevents all adjustments - both manual (Control Center slider) and automatic (TwinKley). This is an intentional power-saving feature triggered by the ambient light sensor.
 
 **Symptoms:**
 - Control Center keyboard brightness slider is unresponsive
-- TwinKley sync commands are ignored (even though debug log may show "OK")
+- TwinKley sync commands are accepted but ignored
 - Neither manual nor automatic control works
 
-**This is macOS behavior, not a TwinKley bug.** When the ambient light sensor detects sufficient light, macOS can completely disable the keyboard backlight subsystem.
+**Technical details:**
+- Apple internally calls this state "suppressed" (via the private `isBacklightSuppressedOnKeyboard:` API)
+- The ambient light sensor is located near the FaceTime camera
+- When sufficient ambient light is detected, macOS suppresses the backlight to save power
+- This is separate from the "Adjust keyboard brightness in low light" setting
 
-**Workaround:** Wait for lighting conditions to change, or move to a dimmer environment. macOS will release control when it decides backlight is needed again.
+**This is macOS behavior, not a TwinKley bug.** TwinKley respects macOS having primary control over keyboard brightness.
+
+**Options:**
+1. **Wait** - macOS will release control when lighting conditions change
+2. **Cover the sensor** - Briefly covering the ambient light sensor (near the camera) will re-enable manual control
+3. **Disable auto-brightness** - Turn off "Adjust keyboard brightness in low light" in System Settings → Keyboard (gives you full manual control, but loses the power-saving benefit)
 
 *Note: TwinKley should automatically resume syncing when macOS releases control.*
 
