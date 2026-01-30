@@ -333,6 +333,24 @@ This refreshes the code signing validation in the TCC database.
 
 </details>
 
+<details>
+<summary><strong>Keyboard brightness locked by macOS</strong></summary>
+
+Sometimes macOS locks the keyboard backlight and prevents all adjustments - both manual (Control Center slider) and automatic (TwinKley). This appears to be triggered by the ambient light sensor when macOS decides backlight isn't needed.
+
+**Symptoms:**
+- Control Center keyboard brightness slider is unresponsive
+- TwinKley sync commands are ignored (even though debug log may show "OK")
+- Neither manual nor automatic control works
+
+**This is macOS behavior, not a TwinKley bug.** When the ambient light sensor detects sufficient light, macOS can completely disable the keyboard backlight subsystem.
+
+**Workaround:** Wait for lighting conditions to change, or move to a dimmer environment. macOS will release control when it decides backlight is needed again.
+
+*Note: TwinKley should automatically resume syncing when macOS releases control.*
+
+</details>
+
 ## Technical Notes
 
 - M4 MacBooks use `keyCode=6` or `keyCode=7` for display brightness events (different from older Macs which use codes 2/3)
