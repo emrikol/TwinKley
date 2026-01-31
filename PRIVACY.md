@@ -58,9 +58,8 @@ Updates are checked via GitHub Releases. You control when to install updates.
 
 All data is stored locally on your Mac:
 
-- **Settings**: `~/.twinkley.json` (JSON file, human-readable)
+- **Settings**: `~/.twinkley.json` (JSON file, human-readable, includes first-launch flag)
 - **Debug logs**: `~/.twinkley-debug.log` (optional, only when debug mode enabled)
-- **First-launch flag**: macOS UserDefaults (local preference file)
 
 No data ever leaves your computer except for update checks.
 

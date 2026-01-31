@@ -7,7 +7,7 @@ A lightweight macOS menu bar app that synchronizes your keyboard backlight brigh
 - **Live Sync**: Instantly syncs when you change brightness (keys, Control Center slider, etc.)
 - **Timed Sync**: Optional background check every 10 seconds as a safety net (disabled by default)
 - **Battery Aware**: Option to pause background checking when on battery
-- **Minimal Resource Usage**: ~11MB memory, zero CPU when idle, runs silently in the menu bar
+- **Minimal Resource Usage**: ~12MB memory, zero CPU when idle, runs silently in the menu bar
 - **Persistent Settings**: Saves preferences to `~/.twinkley.json`
 - **Auto-Updates**: Built-in update system (Sparkle 2) - stay current effortlessly
 - **Privacy First**: Zero data collection - everything runs locally ([Privacy Policy](PRIVACY.md))
@@ -84,7 +84,7 @@ cd TwinKley
 ./build.sh
 ```
 
-This creates `~/Applications/TwinKley.app` and a LaunchAgent.
+This creates `/Applications/TwinKley.app` and a LaunchAgent.
 
 ### Grant Accessibility Permissions
 
@@ -97,7 +97,7 @@ This creates `~/Applications/TwinKley.app` and a LaunchAgent.
 ### Start the App
 
 ```bash
-open ~/Applications/TwinKley.app
+open /Applications/TwinKley.app
 ```
 
 Or double-click the app in Finder.
@@ -132,7 +132,7 @@ Debug logs are written to `~/.twinkley-debug.log` and include timestamps, bright
 
 **Enable at startup:**
 ```bash
-~/Applications/TwinKley.app/Contents/MacOS/TwinKley --debug
+/Applications/TwinKley.app/Contents/MacOS/TwinKley --debug
 ```
 
 **Toggle during runtime (no restart needed):**
@@ -149,7 +149,7 @@ Settings are stored in `~/.twinkley.json`:
 ```json
 {
   "liveSyncEnabled": true,
-  "timedSyncEnabled": true,
+  "timedSyncEnabled": false,
   "timedSyncIntervalMs": 10000,
   "pauseTimedSyncOnBattery": false,
   "pauseTimedSyncOnLowBattery": true,
@@ -160,7 +160,7 @@ Settings are stored in `~/.twinkley.json`:
 | Setting | Description | Default |
 |---------|-------------|---------|
 | `liveSyncEnabled` | Instant sync when brightness changes | `true` |
-| `timedSyncEnabled` | Background check every 10s as safety net | `true` |
+| `timedSyncEnabled` | Background check every 10s as safety net | `false` |
 | `timedSyncIntervalMs` | Polling interval (100-60000ms) | `10000` |
 | `pauseTimedSyncOnBattery` | Pause polling when on battery | `false` |
 | `pauseTimedSyncOnLowBattery` | Pause polling when battery < 20% | `true` |
@@ -275,7 +275,7 @@ When you drag the Control Center slider from 0% to 100%, macOS fires multiple `N
 - Control Center, Touch Bar, physical keys - all work instantly
 - The only time the 10-second timer is needed is for apps that bypass the event system entirely
 
-See `NOTES.md` for full debug logs and detailed investigation.
+See `docs/macos-media-keys-reference.md` for technical details on macOS brightness events.
 
 </details>
 
@@ -287,7 +287,7 @@ TwinKley is designed to be invisible to your battery. We benchmarked both sync m
 |--------|---------------|------------------|
 | **CPU wake-ups (8 hrs)** | **0** | 2,880 |
 | **CPU time (8 hrs)** | **~1 second** | ~3 seconds |
-| **Memory** | 10.7 MB | 10.8 MB |
+| **Memory** | ~12 MB | ~12 MB |
 
 ### What This Means
 
@@ -373,7 +373,7 @@ Sometimes macOS **locks** the keyboard backlight and prevents all adjustments - 
 - Keyboard brightness control uses Apple's private `CoreBrightness.framework` (`KeyboardBrightnessClient`)
 - The "locked" state is detected via `isBacklightSaturatedOnKeyboard:` (not `isBacklightSuppressedOnKeyboard:` - these are different states)
 - Event data must be read via NSEvent conversion, not directly from CGEvent (see `docs/macos-media-keys-reference.md`)
-- See `NOTES.md` for detailed research notes on the implementation
+- See `docs/macos-media-keys-reference.md` for technical details on macOS brightness events
 
 ## Privacy
 

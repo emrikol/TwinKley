@@ -4,6 +4,14 @@ Project conventions and context for AI assistants.
 
 ---
 
+## Git Operations (CRITICAL)
+
+**NEVER run `git commit` or `git push` without explicit user permission.**
+
+Always ask the user before committing or pushing. Show them what will be committed and wait for approval.
+
+---
+
 ## Core Principles (CRITICAL)
 
 **These principles guide EVERY design decision. They are non-negotiable.**
@@ -25,7 +33,7 @@ When trade-offs arise, optimize in this order:
 **Rule**: Before adding any timer, polling loop, or background work, prove no event-driven alternative exists.
 
 ### 2. Memory & Binary Size Efficiency
-- **Minimal footprint**: Target ~12 MB resident memory, ~150 KB binary
+- **Minimal footprint**: Target ~12 MB resident memory, ~157 KB binary
 - **Small binary**: Strip symbols, avoid bloat, question every dependency
 - **Lazy loading**: Load frameworks only when actually used (like Sparkle)
 - **Dynamic loading**: Use `dlopen()` for truly optional components
@@ -99,7 +107,7 @@ The app should be invisible until needed.
 
 | Target | Value |
 |--------|-------|
-| Binary | ~150 KB |
+| Binary | ~157 KB |
 | Memory | ~12 MB (base, with Accessibility granted), ~15-22 MB (with TwinKleyUI loaded) |
 | Idle CPU | 0% |
 | Bundle | ~3.1 MB (includes Sparkle framework ~2.8 MB) |

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta8] - 2026-01-31
+
 ### Fixed
 - Brightness key detection now works reliably across all apps (was incorrectly reading event data)
 - Simplified default `brightnessKeyCodes` to `[2, 3]` (the correct NX_KEYTYPE values)
@@ -14,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - NX_SYSDEFINED event handling now converts CGEvent to NSEvent before reading data1 (fixes incorrect keyCode parsing)
 - Added subtype filtering to only process media key events (subtype 8), ignoring mouse button events (subtype 7)
+
+### Added
+- `docs/macos-media-keys-reference.md` - Technical reference for macOS media key handling
+- `scripts/test-keytypes.swift` - Diagnostic tool for debugging brightness key detection
 
 ### Acknowledgments
 - Thanks to [Chromium's media_keys_listener_mac.mm](https://chromium.googlesource.com/chromium/src/+/66.0.3359.158/ui/base/accelerators/media_keys_listener_mac.mm) for demonstrating the correct approach to reading NX_SYSDEFINED event data
