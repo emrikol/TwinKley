@@ -366,6 +366,19 @@ Sometimes macOS **locks** the keyboard backlight and prevents all adjustments - 
 
 </details>
 
+<details>
+<summary><strong>Auto-update fails with "Error running the updater"</strong></summary>
+
+If you see "An error occurred while running the updater" when checking for updates, you may be running a version with a known issue (beta9 or earlier).
+
+**Cause:** Versions before beta10 had incorrectly signed XPC services that prevent the updater from working.
+
+**Fix:** Manually download the latest version from [GitHub Releases](https://github.com/emrikol/TwinKley/releases). After installing beta10 or later, auto-updates will work correctly going forward.
+
+**Debug info:** Update errors are logged to `~/.twinkley-debug.log` even without debug mode enabled.
+
+</details>
+
 ## Technical Notes
 
 - All Macs (including M4 MacBook Pro) use `keyCode=2` (brightness up) and `keyCode=3` (brightness down) for `NX_SYSDEFINED` events

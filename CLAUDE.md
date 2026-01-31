@@ -150,12 +150,26 @@ When the app quits, clean up:
 - [ ] `NotificationCenter.removeObserver(self)`
 - [ ] Invalidate all timers
 
+### Code Signing with Nested Frameworks
+**CRITICAL**: When using `codesign --deep` to sign an app bundle containing frameworks with XPC services (like Sparkle), **never use `--identifier`** flag. The `--identifier` flag overwrites the bundle identifiers of ALL nested components, breaking XPC communication.
+
+```bash
+# WRONG - breaks XPC services in nested frameworks
+codesign --force --deep --identifier "com.example.MyApp" MyApp.app
+
+# CORRECT - each nested component keeps its own identifier from Info.plist
+codesign --force --deep MyApp.app
+```
+
+**Why this matters:** Sparkle's `Installer.xpc` needs identifier `org.sparkle-project.InstallerLauncher` for XPC communication. If you overwrite it with your app's identifier, auto-updates fail with error 4005.
+
 ---
 
 ## Technical Constraints
 
 ### M4 Mac Quirks
-- Brightness keys send `keyCode=6` (NX_POWER_KEY), not codes 2/3
+- Brightness keys send `keyCode=2` (up) and `keyCode=3` (down) when read correctly via NSEvent
+- **Important**: Reading CGEvent fields directly gives wrong keyCodes - must convert to NSEvent first
 - `AppleLMUController` doesn't exist (pre-2015 only)
 - Some IOKit services are missing or renamed
 
