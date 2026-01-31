@@ -84,17 +84,14 @@ fi
 
 echo "✅ CHANGELOG.md is committed"
 
-# Check 5: Working directory is clean
+# Check 5: Working directory is clean (warning only, not blocking)
 if [ -n "$(git status --porcelain)" ]; then
-	echo "⚠️  WARNING: Working directory has uncommitted changes:"
+	echo "⚠️  WARNING: Working directory has uncommitted/untracked files:"
 	echo ""
 	git status --short
 	echo ""
-	read -p "Continue anyway? (y/N) " -n 1 -r
-	echo
-	if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-		exit 1
-	fi
+	echo "   Continuing anyway (warnings don't block releases)..."
+	echo ""
 fi
 
 # Check 6: Version in Settings.swift matches tag
