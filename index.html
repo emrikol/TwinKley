@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
+    <title>TwinKley - Keyboard Brightness Sync for macOS | Apple Silicon Mac App</title>
+    <meta name="title" content="TwinKley - Keyboard Brightness Sync for macOS | Apple Silicon Mac App">
+    <meta name="description" content="Free macOS menu bar app that syncs your keyboard backlight with display brightness. Made for M4 MacBook Pro and Apple Silicon Macs. No data collection.">
+    <meta name="keywords" content="macOS keyboard brightness, MacBook keyboard backlight, M4 MacBook Pro, Apple Silicon, keyboard brightness sync, menu bar app, macOS utility, keyboard backlight control, display brightness sync, Mac automation">
+    <meta name="author" content="Derrick Tennant">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://emrikol.github.io/TwinKley/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://emrikol.github.io/TwinKley/">
+    <meta property="og:title" content="TwinKley - Keyboard Brightness Sync for macOS">
+    <meta property="og:description" content="Free macOS app that syncs your keyboard backlight with display brightness. Made for Apple Silicon Macs.">
+    <meta property="og:image" content="https://emrikol.github.io/TwinKley/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="TwinKley">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://emrikol.github.io/TwinKley/">
+    <meta name="twitter:title" content="TwinKley - Keyboard Brightness Sync for macOS">
+    <meta name="twitter:description" content="Free macOS app that syncs your keyboard backlight with display brightness. Made for Apple Silicon Macs.">
+    <meta name="twitter:image" content="https://emrikol.github.io/TwinKley/og-image.png">
+
+    <!-- Apple/iOS -->
+    <meta name="apple-mobile-web-app-title" content="TwinKley">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#0d1117">
+    <meta name="msapplication-TileColor" content="#0d1117">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Structured Data / JSON-LD -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "TwinKley",
+        "alternateName": "TwinK[l]ey",
+        "description": "A lightweight macOS menu bar app that automatically syncs your keyboard backlight brightness with your display brightness. Designed for M4 MacBook Pro and Apple Silicon Macs.",
+        "url": "https://emrikol.github.io/TwinKley/",
+        "downloadUrl": "https://github.com/emrikol/TwinKley/releases/latest",
+        "softwareVersion": "1.0.0-beta12",
+        "operatingSystem": "macOS 13.0+",
+        "applicationCategory": "UtilitiesApplication",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "Derrick Tennant",
+            "url": "https://github.com/emrikol"
+        },
+        "publisher": {
+            "@type": "Person",
+            "name": "Derrick Tennant"
+        },
+        "softwareRequirements": "macOS 13.0 or later, tested on M4 MacBook Pro, should work on all Apple Silicon Macs",
+        "memoryRequirements": "12MB",
+        "featureList": [
+            "Live sync with display brightness changes",
+            "Battery-aware power saving mode",
+            "Lightweight - 12MB memory, zero idle CPU",
+            "Privacy focused - zero data collection",
+            "Menu bar integration",
+            "Automatic updates via Sparkle"
+        ],
+        "screenshot": "https://raw.githubusercontent.com/emrikol/TwinKley/main/docs/images/menubar-menu.png",
+        "license": "https://github.com/emrikol/TwinKley/blob/main/LICENSE"
+    }
+    </script>
+
+    <!-- FAQ Schema for common questions -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What Macs does TwinKley work on?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "TwinKley is tested on M4 MacBook Pro (macOS Tahoe) and should work on all Apple Silicon Macs (M1, M2, M3, M4 series) with keyboard backlight. It uses standard macOS brightness events that are consistent across Mac models."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Does TwinKley collect any data?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "No. TwinKley has zero data collection - no analytics, no telemetry, no crash reports. Everything runs locally on your Mac."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How much battery does TwinKley use?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "TwinKley uses an event-driven architecture with zero polling by default, resulting in virtually no battery impact. It only wakes when brightness actually changes."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-card-hover: #1c2129;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --accent-glow: rgba(88, 166, 255, 0.3);
+            --yellow: #f0c14b;
+            --gradient-start: #1a1f35;
+            --gradient-end: #0d1117;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem;
+        }
+
+        /* Hero Section */
+        header {
+            text-align: center;
+            padding: 2rem 0 4rem;
+        }
+
+        .logo {
+            width: 140px;
+            height: 140px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(145deg, #2d3748 0%, #1a202c 100%);
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow:
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                0 0 60px var(--accent-glow),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1) 0%, transparent 50%);
+        }
+
+        .logo-sun {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            font-size: 2.2rem;
+            filter: drop-shadow(0 0 10px rgba(240, 193, 75, 0.6));
+        }
+
+        .logo-key {
+            font-size: 3.5rem;
+            color: #a0aec0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        h1 .bracket {
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .tagline {
+            font-size: 1.35rem;
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto 2.5rem;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(88, 166, 255, 0.4);
+        }
+
+        .btn-primary:hover {
+            background: #79b8ff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(88, 166, 255, 0.5);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--text-secondary);
+        }
+
+        /* Features Grid */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+            margin: 3rem 0;
+        }
+
+        .feature {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .feature:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            font-size: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.375rem;
+        }
+
+        .feature p {
+            font-size: 0.925rem;
+            color: var(--text-secondary);
+        }
+
+        /* How it Works */
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            text-align: center;
+            margin: 4rem 0 1.5rem;
+        }
+
+        .how-it-works {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .sync-visual {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+            font-size: 2.5rem;
+        }
+
+        .sync-arrow {
+            color: var(--accent);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        .how-it-works p {
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin: 3rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        /* Compatibility Section */
+        .compatibility {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 3rem 0;
+        }
+
+        .compatibility h2 {
+            margin: 0 0 1rem 0;
+            font-size: 1.25rem;
+        }
+
+        .compat-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+
+        .compat-item {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+
+        .mac-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        footer nav {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        footer nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+
+        footer nav a:hover {
+            color: var(--accent);
+        }
+
+        .copyright {
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2.5rem; }
+            .tagline { font-size: 1.1rem; }
+            .features { grid-template-columns: 1fr; }
+            .stats { gap: 2rem; }
+            .sync-visual { font-size: 2rem; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <header>
+            <div class="logo" role="img" aria-label="TwinKley app icon - sun and keyboard">
+                <span class="logo-sun" aria-hidden="true">☀️</span>
+                <span class="logo-key" aria-hidden="true">K</span>
+            </div>
+
+            <h1>TwinK<span class="bracket">[</span>l<span class="bracket">]</span>ey</h1>
+            <p class="tagline">Sync your keyboard backlight with your display brightness, automatically.</p>
+
+            <div class="buttons">
+                <a href="https://github.com/emrikol/TwinKley/releases/latest" class="btn btn-primary" aria-label="Download TwinKley for macOS">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                    Download Free
+                </a>
+                <a href="https://github.com/emrikol/TwinKley" class="btn btn-secondary" aria-label="View TwinKley source code on GitHub">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+                    View Source
+                </a>
+            </div>
+        </header>
+
+        <section aria-labelledby="features-heading">
+            <h2 id="features-heading" class="visually-hidden">Features</h2>
+            <div class="features">
+                <article class="feature">
+                    <div class="feature-icon" aria-hidden="true">⚡</div>
+                    <h3>Live Sync</h3>
+                    <p>Instantly syncs when you adjust brightness via keys, Control Center, or Touch Bar.</p>
+                </article>
+                <article class="feature">
+                    <div class="feature-icon" aria-hidden="true">🔋</div>
+                    <h3>Battery Aware</h3>
+                    <p>Optional power-saving mode pauses background sync when on battery.</p>
+                </article>
+                <article class="feature">
+                    <div class="feature-icon" aria-hidden="true">🪶</div>
+                    <h3>Lightweight</h3>
+                    <p>About 12MB memory, zero CPU when idle. Lives in your menu bar.</p>
+                </article>
+                <article class="feature">
+                    <div class="feature-icon" aria-hidden="true">🔒</div>
+                    <h3>Privacy First</h3>
+                    <p>No analytics, no telemetry. Everything stays on your Mac.</p>
+                </article>
+            </div>
+        </section>
+
+        <section aria-labelledby="how-heading">
+            <h2 id="how-heading">How It Works</h2>
+            <div class="how-it-works">
+                <div class="sync-visual" aria-hidden="true">
+                    <span>🖥️</span>
+                    <span class="sync-arrow">⟷</span>
+                    <span>⌨️</span>
+                </div>
+                <p>
+                    TwinKley listens for macOS brightness events and adjusts your keyboard backlight to match. It only wakes when something changes, so there's no background polling.
+                </p>
+            </div>
+        </section>
+
+        <section aria-labelledby="stats-heading">
+            <h2 id="stats-heading" class="visually-hidden">Performance Stats</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value">~12MB</div>
+                    <div class="stat-label">Memory Usage</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">0%</div>
+                    <div class="stat-label">Idle CPU</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Data Collected</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="compatibility" aria-labelledby="compat-heading">
+            <h2 id="compat-heading">Compatibility</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.925rem;">
+                ✅ <strong>Tested on:</strong> M4 MacBook Pro (macOS Tahoe 26.2)
+            </p>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.925rem;">
+                🔄 <strong>Should work on:</strong> All Apple Silicon Macs with keyboard backlight
+            </p>
+            <div class="compat-list">
+                <span class="compat-item">M4 MacBook Pro ✅</span>
+                <span class="compat-item">M3 MacBook Pro/Air</span>
+                <span class="compat-item">M2 MacBook Pro/Air</span>
+                <span class="compat-item">M1 MacBook Pro/Air</span>
+                <span class="compat-item">macOS 13.0+</span>
+            </div>
+        </section>
+
+        <footer>
+            <div class="mac-badge">
+                <span aria-hidden="true"></span> Built for Apple Silicon Macs
+            </div>
+            <nav aria-label="Footer navigation">
+                <a href="https://github.com/emrikol/TwinKley/blob/main/README.md">Documentation</a>
+                <a href="https://github.com/emrikol/TwinKley/blob/main/PRIVACY.md">Privacy Policy</a>
+                <a href="https://github.com/emrikol/TwinKley/releases">All Releases</a>
+                <a href="https://github.com/emrikol/TwinKley/blob/main/LICENSE">License (GPL-3.0)</a>
+            </nav>
+            <p class="copyright">Open source software by <a href="https://github.com/emrikol">Derrick Tennant</a></p>
+        </footer>
+    </main>
+</body>
+</html>
