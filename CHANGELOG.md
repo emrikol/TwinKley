@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta9] - 2026-01-31
+
+### Fixed
+- Control Center brightness slider now triggers keyboard sync (was broken in beta8)
+
+### Changed
+- Event handling now processes both subtype 7 (Control Center) and subtype 8 (physical keys)
+
+### Added
+- `scripts/test-suppression-notifications.swift` - Research tool for CoreBrightness notification discovery
+
 ## [1.0.0-beta8] - 2026-01-31
 
 ### Fixed
