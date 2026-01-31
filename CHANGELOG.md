@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta11] - 2026-01-31
+
+### Added
+- Detailed Sparkle update error reporting with domain, code, and underlying errors
+- Errors always logged to `~/.twinkley-debug.log` even without debug mode
+- Automatic log cleanup at startup (deletes if >7 days old or >1 MB)
+
+### Changed
+- "You're up to date" no longer shows as an error dialog
+
 ## [1.0.0-beta10] - 2026-01-31
 
 ### Fixed
