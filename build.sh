@@ -45,7 +45,7 @@ while getopts "irdrs:h-:" opt; do
 			echo "  ./build.sh --release --universal --notarize  Full distribution build (~60s)"
 			echo ""
 			echo "Certificate auto-detection:"
-			echo "  Normal/Dev:  Apple Development > TwinKley Development > ad-hoc"
+			echo "  Normal/Dev:  Apple Development > Developer ID > TwinKley Development > ad-hoc"
 			echo "  Release:     Developer ID Application"
 			echo ""
 			echo "Examples:"
@@ -69,9 +69,12 @@ if [ -z "$SIGN_IDENTITY" ]; then
 		# Release mode: Use Developer ID for notarization
 		SIGN_IDENTITY="Developer ID Application: Derrick Tennant (3T9RX85H44)"
 	else
-		# Normal/dev mode: Try to find best development certificate
+		# Normal/dev mode: Try to find best certificate (prefer stable certs for TCC)
 		if security find-identity -v -p codesigning | grep -q "Apple Development"; then
 			SIGN_IDENTITY="Apple Development"
+		elif security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
+			# Developer ID works great for dev builds too - stable TCC permissions
+			SIGN_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)".*/\1/')
 		elif security find-identity -v -p codesigning | grep -q "TwinKley Development"; then
 			SIGN_IDENTITY="TwinKley Development"
 		else

@@ -286,6 +286,8 @@ class KeyboardBrightnessController: BrightnessController, KeyboardBrightnessProt
 	private let setBrightnessSelector = NSSelectorFromString("setBrightness:forKeyboard:")
 	private let getBrightnessSelector = NSSelectorFromString("brightnessForKeyboard:")
 	private let getKeyboardIDsSelector = NSSelectorFromString("copyKeyboardBacklightIDs")
+	private let isSaturatedSelector = NSSelectorFromString("isBacklightSaturatedOnKeyboard:")
+	private let isAutoBrightnessSelector = NSSelectorFromString("isAutoBrightnessEnabledForKeyboard:")
 
 	// Cache objc_msgSend pointer to avoid repeated dlsym lookups
 	private static let objcMsgSendPtr: UnsafeMutableRawPointer = dlsym(dlopen(nil, RTLD_NOW), "objc_msgSend")!
@@ -347,6 +349,34 @@ class KeyboardBrightnessController: BrightnessController, KeyboardBrightnessProt
 		let getFunc = unsafeBitCast(Self.objcMsgSendPtr, to: GetBrightnessFunc.self)
 
 		return getFunc(client, getBrightnessSelector, keyboardID)
+	}
+
+	/// Check if keyboard backlight is suppressed by macOS (ambient light sensor)
+	/// Returns true when: brightness is 0, saturated is true, and auto-brightness is enabled
+	/// This indicates the ambient light sensor has forced the keyboard to minimum brightness
+	func isBacklightSuppressed() -> Bool {
+		guard ensureInitialized(),
+			  let client,
+			  client.responds(to: getBrightnessSelector),
+			  client.responds(to: isSaturatedSelector),
+			  client.responds(to: isAutoBrightnessSelector) else
+		{
+			return false
+		}
+
+		typealias BoolFunc = @convention(c) (AnyObject, Selector, UInt64) -> Bool
+		typealias FloatFunc = @convention(c) (AnyObject, Selector, UInt64) -> Float
+
+		let getBrightness = unsafeBitCast(Self.objcMsgSendPtr, to: FloatFunc.self)
+		let checkSaturated = unsafeBitCast(Self.objcMsgSendPtr, to: BoolFunc.self)
+		let checkAutoBrightness = unsafeBitCast(Self.objcMsgSendPtr, to: BoolFunc.self)
+
+		let brightness = getBrightness(client, getBrightnessSelector, keyboardID)
+		let saturated = checkSaturated(client, isSaturatedSelector, keyboardID)
+		let autoBrightness = checkAutoBrightness(client, isAutoBrightnessSelector, keyboardID)
+
+		// Suppressed = ambient light has forced brightness to 0
+		return brightness == 0 && saturated && autoBrightness
 	}
 
 	var isReady: Bool {
@@ -667,13 +697,14 @@ private class SettingsProtocolAdapter: SettingsProtocol {
 
 // Rationale: AppDelegate is the central coordinator for this single-purpose utility.
 // Splitting into multiple classes would fragment the straightforward control flow.
-class AppDelegate: NSObject, NSApplicationDelegate { // swiftlint:disable:this type_body_length
+class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlint:disable:this type_body_length
 	private var statusItem: NSStatusItem!
 	private var keyMonitor: BrightnessKeyMonitor?
 	private var powerMonitor: PowerStateMonitor?
 	private var currentPowerState = PowerState.current(provider: powerSourceProvider)
 	private var keypressSyncMenuItem: NSMenuItem!
 	private var timedSyncMenuItem: NSMenuItem!
+	private var statusMenuItem: NSMenuItem!
 	private var fallbackTimer: Timer?
 
 	// Settings loaded at startup via minimal SettingsLoader (no full SettingsManager needed in main binary)
@@ -828,8 +859,7 @@ class AppDelegate: NSObject, NSApplicationDelegate { // swiftlint:disable:this t
 
 		menu.addItem(NSMenuItem.separator())
 
-		let statusText = syncManager.isReady ? "Status: Active" : "Status: Error"
-		let statusMenuItem = NSMenuItem(title: statusText, action: nil, keyEquivalent: "")
+		statusMenuItem = NSMenuItem(title: "Status: ...", action: nil, keyEquivalent: "")
 		statusMenuItem.isEnabled = false
 		menu.addItem(statusMenuItem)
 
@@ -881,7 +911,22 @@ class AppDelegate: NSObject, NSApplicationDelegate { // swiftlint:disable:this t
 		quitItem.target = self
 		menu.addItem(quitItem)
 
+		menu.delegate = self
 		statusItem.menu = menu
+	}
+
+	// Update status text when menu opens (reflects current state)
+	func menuWillOpen(_ menu: NSMenu) {
+		let statusText = if !syncManager.isReady {
+			"Status: Error"
+		} else if keyboardController.isBacklightSuppressed() {
+			"Status: Locked" // Keyboard brightness locked by ambient light sensor
+		} else if !settings.liveSyncEnabled, !settings.timedSyncEnabled {
+			"Status: Disabled"
+		} else {
+			"Status: Active"
+		}
+		statusMenuItem.title = statusText
 	}
 
 	private func setupBrightnessMonitor() {

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta7] - 2026-01-30
+
+### Added
+- Dynamic menu status: now shows "Locked" when ambient light sensor takes control of keyboard brightness
+- Menu status updates in real-time when opening the menu (Active/Disabled/Locked/Error)
+
+### Changed
+- Build script now prefers Developer ID signing for dev builds (fixes Accessibility permission persistence)
+- Removed unused `isBacklightSuppressedOnKeyboard:` selector (cleanup)
+
+### Fixed
+- Accessibility permissions now persist across rebuilds when using Developer ID certificate
+
 ## [1.0.0-beta6] - 2026-01-30
 
 ### Added
