@@ -7,7 +7,7 @@
     <!-- Primary Meta Tags -->
     <title>TwinKley - Keyboard Brightness Sync for macOS | Apple Silicon Mac App</title>
     <meta name="title" content="TwinKley - Keyboard Brightness Sync for macOS | Apple Silicon Mac App">
-    <meta name="description" content="Free, lightweight macOS menu bar app that automatically syncs your keyboard backlight brightness with your display. Designed for M4 MacBook Pro and Apple Silicon Macs. Zero data collection, instant sync, minimal battery impact.">
+    <meta name="description" content="Free macOS menu bar app that syncs your keyboard backlight with display brightness. Made for M4 MacBook Pro and Apple Silicon Macs. No data collection.">
     <meta name="keywords" content="macOS keyboard brightness, MacBook keyboard backlight, M4 MacBook Pro, Apple Silicon, keyboard brightness sync, menu bar app, macOS utility, keyboard backlight control, display brightness sync, Mac automation">
     <meta name="author" content="Derrick Tennant">
     <meta name="robots" content="index, follow">
@@ -17,7 +17,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://emrikol.github.io/TwinKley/">
     <meta property="og:title" content="TwinKley - Keyboard Brightness Sync for macOS">
-    <meta property="og:description" content="Free, lightweight macOS app that automatically syncs your keyboard backlight with display brightness. Built for Apple Silicon Macs.">
+    <meta property="og:description" content="Free macOS app that syncs your keyboard backlight with display brightness. Made for Apple Silicon Macs.">
     <meta property="og:image" content="https://emrikol.github.io/TwinKley/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -28,7 +28,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://emrikol.github.io/TwinKley/">
     <meta name="twitter:title" content="TwinKley - Keyboard Brightness Sync for macOS">
-    <meta name="twitter:description" content="Free, lightweight macOS app that automatically syncs your keyboard backlight with display brightness. Built for Apple Silicon Macs.">
+    <meta name="twitter:description" content="Free macOS app that syncs your keyboard backlight with display brightness. Made for Apple Silicon Macs.">
     <meta name="twitter:image" content="https://emrikol.github.io/TwinKley/og-image.png">
 
     <!-- Apple/iOS -->
@@ -72,7 +72,7 @@
             "@type": "Person",
             "name": "Derrick Tennant"
         },
-        "softwareRequirements": "macOS 13.0 or later, Apple Silicon Mac recommended",
+        "softwareRequirements": "macOS 13.0 or later, tested on M4 MacBook Pro, should work on all Apple Silicon Macs",
         "memoryRequirements": "12MB",
         "featureList": [
             "Live sync with display brightness changes",
@@ -95,10 +95,10 @@
         "mainEntity": [
             {
                 "@type": "Question",
-                "name": "Does TwinKley work on M4 MacBook Pro?",
+                "name": "What Macs does TwinKley work on?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Yes! TwinKley is specifically designed for M4 MacBook Pro and other Apple Silicon Macs where dedicated keyboard brightness keys were removed."
+                    "text": "TwinKley is tested on M4 MacBook Pro (macOS Tahoe) and should work on all Apple Silicon Macs (M1, M2, M3, M4 series) with keyboard backlight. It uses standard macOS brightness events that are consistent across Mac models."
                 }
             },
             {
@@ -493,12 +493,12 @@
                 <article class="feature">
                     <div class="feature-icon" aria-hidden="true">🪶</div>
                     <h3>Lightweight</h3>
-                    <p>Just ~12MB memory and zero CPU when idle. Runs silently in your menu bar.</p>
+                    <p>About 12MB memory, zero CPU when idle. Lives in your menu bar.</p>
                 </article>
                 <article class="feature">
                     <div class="feature-icon" aria-hidden="true">🔒</div>
                     <h3>Privacy First</h3>
-                    <p>Zero data collection. No analytics. Everything runs locally on your Mac.</p>
+                    <p>No analytics, no telemetry. Everything stays on your Mac.</p>
                 </article>
             </div>
         </section>
@@ -512,7 +512,7 @@
                     <span>⌨️</span>
                 </div>
                 <p>
-                    TwinKley watches for macOS brightness change events and automatically adjusts your keyboard backlight to match. No polling, no battery drain—just seamless sync.
+                    TwinKley listens for macOS brightness events and adjusts your keyboard backlight to match. It only wakes when something changes, so there's no background polling.
                 </p>
             </div>
         </section>
@@ -536,13 +536,18 @@
         </section>
 
         <section class="compatibility" aria-labelledby="compat-heading">
-            <h2 id="compat-heading">Works With</h2>
+            <h2 id="compat-heading">Compatibility</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.925rem;">
+                ✅ <strong>Tested on:</strong> M4 MacBook Pro (macOS Tahoe 26.2)
+            </p>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.925rem;">
+                🔄 <strong>Should work on:</strong> All Apple Silicon Macs with keyboard backlight
+            </p>
             <div class="compat-list">
-                <span class="compat-item">M4 MacBook Pro</span>
-                <span class="compat-item">M3 MacBook Pro</span>
-                <span class="compat-item">M2 MacBook Air</span>
-                <span class="compat-item">M1 MacBook Pro</span>
-                <span class="compat-item">All Apple Silicon Macs</span>
+                <span class="compat-item">M4 MacBook Pro ✅</span>
+                <span class="compat-item">M3 MacBook Pro/Air</span>
+                <span class="compat-item">M2 MacBook Pro/Air</span>
+                <span class="compat-item">M1 MacBook Pro/Air</span>
                 <span class="compat-item">macOS 13.0+</span>
             </div>
         </section>
