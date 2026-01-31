@@ -526,13 +526,15 @@ class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 		// IMPORTANT: Must convert to NSEvent to read data1 correctly - CGEvent field access is unreliable
 		if type.rawValue == 14, let nsEvent = NSEvent(cgEvent: event) { // NX_SYSDEFINED
 			let subtype = nsEvent.subtype.rawValue
-			// Only process media key events (subtype 8 = NX_SUBTYPE_AUX_CONTROL_BUTTONS)
-			// Subtype 7 is mouse buttons, others are power/eject/sleep - ignore all
-			guard subtype == 8 else { return }
-
 			let data1 = nsEvent.data1
 			let keyCode = Int((data1 >> 16) & 0xFF)
 			let keyState = Int((data1 >> 8) & 0xFF)
+
+			// Handle different event subtypes:
+			// - Subtype 8 (NX_SUBTYPE_AUX_CONTROL_BUTTONS): Physical brightness keys with keyCodes 2/3
+			// - Subtype 7 (NX_SUBTYPE_AUX_MOUSE_BUTTONS): Control Center slider generates these
+			// - Other subtypes: power/eject/sleep events - ignore
+			guard subtype == 7 || subtype == 8 else { return }
 
 			// Track keyCode distribution for diagnostics
 			health.trackKeyCode(keyCode)
@@ -542,10 +544,20 @@ class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 				self?.onEventCaptured?("NX", keyCode, keyState)
 			}
 
-			// Check if it's brightness (keyCodes configurable via ~/.twinkley.json)
-			if brightnessKeyCodes.contains(keyCode) {
+			// Subtype 8: Physical brightness keys - check keyCodes
+			if subtype == 8, brightnessKeyCodes.contains(keyCode) {
 				health.brightnessEventsReceived += 1
-				debugLog("Brightness event detected (keyCode=\(keyCode))")
+				debugLog("Brightness key event (keyCode=\(keyCode))")
+				DispatchQueue.main.async { [weak self] in
+					self?.onBrightnessKeyPressed?()
+				}
+			}
+
+			// Subtype 7: Control Center/system UI events - always sync on key release
+			// Control Center brightness slider generates these with keyCode=0
+			if subtype == 7, keyState == 0 {
+				health.brightnessEventsReceived += 1
+				debugLog("Control Center event (subtype=7, keyCode=\(keyCode))")
 				DispatchQueue.main.async { [weak self] in
 					self?.onBrightnessKeyPressed?()
 				}

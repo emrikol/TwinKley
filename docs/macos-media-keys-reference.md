@@ -51,7 +51,9 @@ NX_SYSDEFINED events have different subtypes to distinguish event categories.
 | NX_SUBTYPE_EJECT_KEY | 10 | Eject key |
 | NX_SUBTYPE_SLEEP_EVENT | 11 | Sleep events |
 
-**Important:** Media key events use subtype 8 (`NX_SUBTYPE_AUX_CONTROL_BUTTONS`). Other NX_SYSDEFINED events have different subtypes.
+**Important:**
+- **Physical media keys** (brightness, volume, play/pause) use subtype 8 (`NX_SUBTYPE_AUX_CONTROL_BUTTONS`)
+- **Control Center sliders** (brightness, volume) generate subtype 7 (`NX_SUBTYPE_AUX_MOUSE_BUTTONS`) events
 
 **Source:** [Chromium media_keys_listener_mac.mm](https://chromium.googlesource.com/chromium/src/+/66.0.3359.158/ui/base/accelerators/media_keys_listener_mac.mm)
 
@@ -366,10 +368,13 @@ let data1 = event.getIntegerValueField(CGEventField(rawValue: 85)!)
 // CORRECT - always gives accurate keyCodes
 if let nsEvent = NSEvent(cgEvent: event) {
     let subtype = nsEvent.subtype.rawValue
-    guard subtype == 8 else { return }  // Only process media keys (NX_SUBTYPE_AUX_CONTROL_BUTTONS)
+    // Process both subtypes:
+    // - Subtype 8: Physical brightness keys (keyCodes 2/3)
+    // - Subtype 7: Control Center slider events
+    guard subtype == 7 || subtype == 8 else { return }
 
     let data1 = nsEvent.data1
-    let keyCode = Int((data1 >> 16) & 0xFF)  // Now correctly returns 2 or 3
+    let keyCode = Int((data1 >> 16) & 0xFF)  // Correctly returns 2 or 3 for physical keys
 }
 ```
 
@@ -444,5 +449,53 @@ NSEvent correctly interprets the event structure and provides accurate data1 val
 When debugging macOS event handling:
 1. Don't trust CGEvent field access for NX_SYSDEFINED events
 2. Always convert to NSEvent for reliable data extraction
-3. Check subtype to filter event categories (8 = media keys, 7 = mouse buttons)
+3. Check subtype to filter event categories:
+   - Subtype 8 = physical media keys (brightness, volume, play/pause)
+   - Subtype 7 = Control Center slider events (brightness, volume)
+   - Other subtypes = power/eject/sleep events
 4. Look at how established projects (Chromium, Firefox) handle the same events
+
+---
+
+## Control Center Brightness Events
+
+**Important discovery (January 2026):** Control Center brightness slider generates different events than physical brightness keys.
+
+### Event Differences
+
+| Source | Subtype | keyCode | Notes |
+|--------|---------|---------|-------|
+| Physical brightness keys | 8 (AUX_CONTROL_BUTTONS) | 2 (up) or 3 (down) | Standard media key events |
+| Control Center slider | 7 (AUX_MOUSE_BUTTONS) | 0 | Generates on slider movement |
+
+### Sample Control Center Events
+
+```
+[1.4s] NX(sub=7,kc=0,keyState=10) | D:80% → K:sync
+[4.4s] NX(sub=7,kc=0,keyState=0)  | D:45% → K:sync
+```
+
+### Implementation
+
+To catch both physical brightness keys AND Control Center slider:
+
+```swift
+if let nsEvent = NSEvent(cgEvent: event) {
+    let subtype = nsEvent.subtype.rawValue
+    guard subtype == 7 || subtype == 8 else { return }
+
+    if subtype == 8 {
+        // Physical keys: check keyCodes 2/3
+        let keyCode = Int((data1 >> 16) & 0xFF)
+        if keyCode == 2 || keyCode == 3 { sync() }
+    }
+
+    if subtype == 7 {
+        // Control Center: sync on key release (keyState == 0)
+        let keyState = Int((data1 >> 8) & 0xFF)
+        if keyState == 0 { sync() }
+    }
+}
+```
+
+**Source:** Direct testing on M4 MacBook Pro, January 2026

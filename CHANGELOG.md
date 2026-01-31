@@ -12,10 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Brightness key detection now works reliably across all apps (was incorrectly reading event data)
 - Simplified default `brightnessKeyCodes` to `[2, 3]` (the correct NX_KEYTYPE values)
+- Control Center brightness slider now triggers sync (handles subtype 7 events)
 
 ### Changed
 - NX_SYSDEFINED event handling now converts CGEvent to NSEvent before reading data1 (fixes incorrect keyCode parsing)
-- Added subtype filtering to only process media key events (subtype 8), ignoring mouse button events (subtype 7)
+- Event handling now processes both subtype 7 (Control Center) and subtype 8 (physical keys)
 
 ### Added
 - `docs/macos-media-keys-reference.md` - Technical reference for macOS media key handling
