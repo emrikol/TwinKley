@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta12] - 2026-01-31
+
+### Fixed
+- Removed duplicate error dialog (Sparkle shows its own, we just log details now)
+
+### Note
+Users on beta9 or earlier must manually download this version - the auto-updater
+in those versions has a broken XPC service identifier that prevents self-updating.
+
 ## [1.0.0-beta11] - 2026-01-31
 
 ### Added

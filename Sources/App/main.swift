@@ -735,67 +735,36 @@ private class SettingsProtocolAdapter: SettingsProtocol {
 
 #if !APP_STORE
 /// Delegate to capture detailed Sparkle update errors for debugging
+/// Errors are logged to ~/.twinkley-debug.log (Sparkle shows its own UI for errors)
 class SparkleUpdateDelegate: NSObject, SPUUpdaterDelegate {
 	/// Called when an update check or installation fails
 	func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
 		let nsError = error as NSError
 
+		// Skip logging "up to date" (code 1001) - that's not really an error
+		guard nsError.code != 1_001 else { return }
+
 		// Always log Sparkle errors (even without debug mode) since they're important
-		let errorDetails = """
-		Sparkle update aborted: \(error.localizedDescription)
-		  Error domain: \(nsError.domain)
-		  Error code: \(nsError.code)
-		"""
-		debugLog(errorDetails, force: true)
+		debugLog("Sparkle update error: \(error.localizedDescription)", force: true)
+		debugLog("  Domain: \(nsError.domain), Code: \(nsError.code)", force: true)
 
 		if let underlyingError = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
-			debugLog("  Underlying error: \(underlyingError.localizedDescription)", force: true)
-			debugLog("  Underlying domain: \(underlyingError.domain)", force: true)
-			debugLog("  Underlying code: \(underlyingError.code)", force: true)
+			debugLog("  Underlying: \(underlyingError.localizedDescription) (\(underlyingError.domain):\(underlyingError.code))", force: true)
 		}
 		for (key, value) in nsError.userInfo where key != NSUnderlyingErrorKey {
 			debugLog("  \(key): \(value)", force: true)
 		}
-
-		// Skip showing dialog for "up to date" (code 1001) - that's not really an error
-		guard nsError.code != 1_001 else { return }
-
-		// Show detailed error dialog
-		DispatchQueue.main.async {
-			let alert = NSAlert()
-			alert.messageText = "Update Error Details"
-			alert.informativeText = """
-			Error: \(error.localizedDescription)
-
-			Domain: \(nsError.domain)
-			Code: \(nsError.code)
-
-			This information can help diagnose the update issue.
-			Check ~/.twinkley-debug.log for more details.
-			"""
-			alert.alertStyle = .warning
-			alert.addButton(withTitle: "OK")
-			alert.addButton(withTitle: "Copy to Clipboard")
-			let response = alert.runModal()
-			if response == .alertSecondButtonReturn {
-				let errorText = """
-				Sparkle Update Error
-				====================
-				Error: \(error.localizedDescription)
-				Domain: \(nsError.domain)
-				Code: \(nsError.code)
-				User Info: \(nsError.userInfo)
-				"""
-				NSPasteboard.general.clearContents()
-				NSPasteboard.general.setString(errorText, forType: .string)
-			}
-		}
+		// Note: Sparkle shows its own error dialog, so we don't show a duplicate
 	}
 
 	/// Called when update finishes (success or failure)
 	func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
 		if let error {
-			debugLog("Sparkle update cycle finished with error: \(error.localizedDescription)")
+			let nsError = error as NSError
+			// Skip logging "up to date" - not an error
+			if nsError.code != 1_001 {
+				debugLog("Sparkle update cycle finished with error: \(error.localizedDescription)", force: true)
+			}
 		} else {
 			debugLog("Sparkle update cycle finished successfully")
 		}
