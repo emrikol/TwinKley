@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TwinKley - Keyboard Brightness Sync for Mac</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 600px;
+            text-align: center;
+        }
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+        .tagline {
+            font-size: 1.1rem;
+            color: #a0a0a0;
+            margin-bottom: 2rem;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin: 2rem 0;
+            text-align: left;
+        }
+        .feature {
+            background: rgba(255,255,255,0.05);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .feature-icon { margin-right: 0.5rem; }
+        .feature-title {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.25rem;
+        }
+        .feature-desc {
+            font-size: 0.85rem;
+            color: #a0a0a0;
+        }
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .btn-primary {
+            background: #4f8cff;
+            color: #fff;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .footer {
+            margin-top: 3rem;
+            font-size: 0.85rem;
+            color: #606060;
+        }
+        .footer a { color: #808080; }
+        @media (max-width: 500px) {
+            .features { grid-template-columns: 1fr; }
+            h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">☀️⌨️</div>
+        <h1>TwinK[l]ey</h1>
+        <p class="tagline">Sync your keyboard backlight with display brightness on Mac</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-title"><span class="feature-icon">⚡</span>Live Sync</div>
+                <div class="feature-desc">Instant sync when brightness changes</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title"><span class="feature-icon">🔋</span>Battery Aware</div>
+                <div class="feature-desc">Pause on battery to save power</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title"><span class="feature-icon">🪶</span>Lightweight</div>
+                <div class="feature-desc">~12MB memory, zero CPU when idle</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title"><span class="feature-icon">🔒</span>Privacy First</div>
+                <div class="feature-desc">Zero data collection, runs locally</div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <a href="https://github.com/emrikol/TwinKley/releases/latest" class="btn btn-primary">Download</a>
+            <a href="https://github.com/emrikol/TwinKley" class="btn btn-secondary">View on GitHub</a>
+        </div>
+
+        <div class="footer">
+            <p>Designed for M4 MacBook Pro and Apple Silicon Macs</p>
+            <p style="margin-top: 0.5rem;"><a href="https://github.com/emrikol/TwinKley/blob/main/PRIVACY.md">Privacy Policy</a></p>
+        </div>
+    </div>
+</body>
+</html>
