@@ -174,17 +174,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare appcast for GitHub Pages
+      - name: Prepare GitHub Pages content
         run: |
           mkdir -p gh-pages
           cp appcast.xml gh-pages/
 
-      - name: Publish appcast to GitHub Pages
+          # Download existing index.html from gh-pages to update version
+          if curl -f -s -o gh-pages/index.html https://emrikol.github.io/TwinKley/index.html; then
+            echo "Updating version in index.html..."
+            VERSION=${{ steps.version.outputs.version }}
+            # Update JSON-LD softwareVersion
+            sed -i '' "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$VERSION\"/" gh-pages/index.html
+            echo "Updated index.html to version $VERSION"
+          else
+            echo "No existing index.html found, skipping"
+          fi
+
+      - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: gh-pages
-          keep_files: false
+          keep_files: true
           publish_branch: gh-pages
           enable_jekyll: false
           user_name: 'github-actions[bot]'
