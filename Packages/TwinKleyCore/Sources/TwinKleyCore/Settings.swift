@@ -5,11 +5,11 @@ import Foundation
 /// App version information
 public enum AppInfo {
 	/// Display version string (e.g., "1.0.0-beta2", "1.0.0", "1.1.0")
-	public static let version = "1.0.0-beta7"
+	public static let version = "1.0.0-beta8"
 	/// Build number for Sparkle (auto-incremented by build script)
 	/// Combined with version base for CFBundleVersion (e.g., "1.0.0.2")
 	/// This number always increments regardless of version changes
-	public static let buildNumber = 36
+	public static let buildNumber = 39
 	/// Full app name with emojis for display
 	public static let name = "☀️ TwinK[l]ey ⌨️"
 	/// Short app name for menus
@@ -56,8 +56,9 @@ public struct Settings: Codable, Equatable {
 	public static let gammaMax = 4.0
 	/// Default gamma value - 1.5 = mild correction (recommended)
 	public static let gammaDefault = 1.5
-	/// Default brightness keyCodes (2/3=legacy, 6=M4, 7=wake states)
-	public static let brightnessKeyCodesDefault = [2, 3, 6, 7]
+	/// Default brightness keyCodes - NX_KEYTYPE_BRIGHTNESS_UP (2) and NX_KEYTYPE_BRIGHTNESS_DOWN (3)
+	/// Note: CGEvent field access gives incorrect results - must convert to NSEvent first
+	public static let brightnessKeyCodesDefault = [2, 3]
 
 	/// Default settings
 	public static let `default` = Settings(

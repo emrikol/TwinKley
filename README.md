@@ -60,8 +60,19 @@ Some apps or tools might change brightness without triggering macOS notification
 
 ## Requirements
 
-- macOS (tested on macOS Sequoia with M4 MacBook Pro)
+- macOS 13.0+ (Ventura or later)
 - **Accessibility permissions** (required for keypress detection)
+- Mac with keyboard backlight
+
+### Compatibility
+
+| Status | Hardware |
+|--------|----------|
+| ✅ **Tested** | M4 MacBook Pro (macOS Tahoe 26.2) |
+| 🔄 **Should work** | All Apple Silicon Macs (M1, M2, M3, M4 series) |
+| ❓ **Unknown** | Intel Macs with keyboard backlight |
+
+The app uses standard macOS APIs (`NX_SYSDEFINED` events with keyCodes 2/3) that are consistent across Mac models. If you test on other hardware, let us know!
 
 ## Installation
 
@@ -160,26 +171,20 @@ Settings are stored in `~/.twinkley.json`:
 <details>
 <summary><strong>Custom Brightness Key Codes</strong></summary>
 
-TwinKley detects brightness changes by listening for macOS `NX_SYSDEFINED` events with specific key codes. Different Mac models may use different codes:
+TwinKley detects brightness changes by listening for macOS `NX_SYSDEFINED` events with specific key codes.
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `brightnessKeyCodes` | Array of NX key codes to treat as brightness events | `[2, 3, 6, 7]` |
+| `brightnessKeyCodes` | Array of NX key codes to treat as brightness events | `[2, 3]` |
 
 **Default key codes:**
-- `2`, `3` - Legacy brightness keys (older Macs)
-- `6` - M4 MacBook Pro brightness events
-- `7` - Wake/power state brightness events
+- `2` - `NX_KEYTYPE_BRIGHTNESS_UP`
+- `3` - `NX_KEYTYPE_BRIGHTNESS_DOWN`
+
+These are the standard brightness key codes defined in Apple's IOKit headers and work consistently across all Mac models (including M4 MacBook Pro) when read correctly.
 
 **When to customize:**
-If brightness detection isn't working on your Mac, use the Debug Window's "Capture Events" feature to see which key codes your system generates, then add them to this array.
-
-**Example - adding a custom key code:**
-```json
-{
-  "brightnessKeyCodes": [2, 3, 6, 7, 31]
-}
-```
+In rare cases, if brightness detection isn't working on your Mac, use the Debug Window's "Capture Events" feature to see which key codes your system generates, then add them to this array.
 
 *Note: Restart TwinKley after changing this setting.*
 
@@ -261,7 +266,7 @@ When you change display brightness, macOS posts internal "brightness changed" no
 |--------|-------------------|
 | **Physical keys** | Generate discrete brightness steps (e.g., 0.5000 → 0.4375 → 0.3750) |
 | **Control Center slider** | Generate continuous analog values (e.g., 0.5009 → 0.4910 → 0.3830) |
-| **Both** | Post the same event type: `NX_SYSDEFINED` with keyCode=6 (on M4 Macs) |
+| **Both** | Post the same event type: `NX_SYSDEFINED` with keyCode=2 (up) or keyCode=3 (down) |
 
 When you drag the Control Center slider from 0% to 100%, macOS fires multiple `NX_SYSDEFINED` events - one for each brightness level crossed. This is similar to holding down a physical brightness key.
 
@@ -363,10 +368,11 @@ Sometimes macOS **locks** the keyboard backlight and prevents all adjustments - 
 
 ## Technical Notes
 
-- M4 MacBooks use `keyCode=6` or `keyCode=7` for display brightness events (different from older Macs which use codes 2/3)
+- All Macs (including M4 MacBook Pro) use `keyCode=2` (brightness up) and `keyCode=3` (brightness down) for `NX_SYSDEFINED` events
 - The app requires Accessibility permissions for the event tap to function
 - Keyboard brightness control uses Apple's private `CoreBrightness.framework` (`KeyboardBrightnessClient`)
 - The "locked" state is detected via `isBacklightSaturatedOnKeyboard:` (not `isBacklightSuppressedOnKeyboard:` - these are different states)
+- Event data must be read via NSEvent conversion, not directly from CGEvent (see `docs/macos-media-keys-reference.md`)
 - See `NOTES.md` for detailed research notes on the implementation
 
 ## Privacy
@@ -413,3 +419,4 @@ If you fork and redistribute modified versions:
 ## Acknowledgments
 
 - [KBPulse](https://github.com/EthanRDoesMC/KBPulse) - For the KeyboardBrightnessClient approach
+- [Chromium](https://chromium.googlesource.com/chromium/src/+/66.0.3359.158/ui/base/accelerators/media_keys_listener_mac.mm) - For demonstrating correct NX_SYSDEFINED event handling (CGEvent → NSEvent conversion)

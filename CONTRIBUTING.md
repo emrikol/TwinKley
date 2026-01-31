@@ -261,6 +261,49 @@ swift scripts/set_brightness.swift 0.5   # Set to 50%
 swift scripts/set_brightness.swift       # Toggle ±10%
 ```
 
+### Diagnostic Tools
+
+These scripts help debug macOS media key and brightness event handling.
+
+#### test-keytypes.swift - Event Monitor
+
+Monitors all keyboard events and NX_SYSDEFINED media key events in real-time. Essential for debugging brightness key detection issues.
+
+```bash
+# Run the diagnostic tool (requires Accessibility permission)
+swift scripts/test-keytypes.swift
+```
+
+**Output example:**
+```
+=== Brightness Key Diagnostic Tool ===
+
+Monitoring... Press Ctrl+C to stop.
+
+App: iTerm2 | Secure: false | Display: 100% | KB: 50%
+
+[2.1s] #1 NX(sub=8,kc=3=BRIGHTNESS_DOWN,D,d2=-1) | iTerm2 | --- | D:94% K:50%
+[2.2s] #2 NX(sub=8,kc=3=BRIGHTNESS_DOWN,U,d2=-1) | iTerm2 | --- | D:94% K:50%
+```
+
+**What it shows:**
+- `sub=8` - Event subtype (8 = media keys, 7 = mouse buttons)
+- `kc=3` - Key code (2=brightness up, 3=brightness down)
+- `D/U/R` - Key state (Down/Up/Repeat)
+- Current app, secure input status, display and keyboard brightness
+
+**Key insight discovered with this tool:** You must convert CGEvent to NSEvent before reading `data1`. Using `CGEvent.getIntegerValueField` directly gives incorrect/inconsistent results. See `docs/macos-media-keys-reference.md` for details.
+
+#### test-nx-events.swift - Event Posting Test
+
+Posts synthetic NX_SYSDEFINED events to test which keyCodes affect brightness. Useful for verifying keyCode behavior.
+
+```bash
+swift scripts/test-nx-events.swift
+```
+
+**Note:** This posts events but they may not affect system brightness the same way physical keys do.
+
 ### Writing Tests
 
 Place tests in `Tests/` directory. Each test file should:

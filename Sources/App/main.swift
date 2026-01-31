@@ -523,8 +523,14 @@ class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 		}
 
 		// Check for NX_SYSDEFINED events (media keys including brightness)
-		if type.rawValue == 14 { // NX_SYSDEFINED
-			let data1 = event.getIntegerValueField(CGEventField(rawValue: 85)!) // data1 field
+		// IMPORTANT: Must convert to NSEvent to read data1 correctly - CGEvent field access is unreliable
+		if type.rawValue == 14, let nsEvent = NSEvent(cgEvent: event) { // NX_SYSDEFINED
+			let subtype = nsEvent.subtype.rawValue
+			// Only process media key events (subtype 8 = NX_SUBTYPE_AUX_CONTROL_BUTTONS)
+			// Subtype 7 is mouse buttons, others are power/eject/sleep - ignore all
+			guard subtype == 8 else { return }
+
+			let data1 = nsEvent.data1
 			let keyCode = Int((data1 >> 16) & 0xFF)
 			let keyState = Int((data1 >> 8) & 0xFF)
 
