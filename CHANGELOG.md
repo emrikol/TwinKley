@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta10] - 2026-01-31
+
+### Fixed
+- Auto-update now works correctly (XPC service identifiers were being overwritten during code signing)
+
+### Changed
+- Code signing no longer uses `--identifier` flag with `--deep`, preserving nested component identifiers
+
 ## [1.0.0-beta9] - 2026-01-31
 
 ### Fixed

@@ -493,7 +493,8 @@ echo ""
 echo "▶ Signing app bundle..."
 if [ "$SIGN_IDENTITY" = "-" ]; then
 	# Ad-hoc signing (no hardened runtime)
-	codesign --force --sign - --identifier "$BUNDLE_ID" "$APP_DIR" 2>/dev/null
+	# NOTE: Don't use --identifier with --deep - it breaks nested component identifiers
+	codesign --force --deep --sign - "$APP_DIR" 2>/dev/null
 	echo "  Signed: ad-hoc (⚠️  permissions reset each build)"
 	echo "  Tip: Create Apple Development cert in Xcode for stable permissions"
 else
@@ -501,12 +502,14 @@ else
 	ENTITLEMENTS="TwinKley.entitlements"
 
 	# Determine if we need timestamp (Developer ID only)
+	# NOTE: Don't use --identifier with --deep signing! It overwrites identifiers
+	# of nested components (like Sparkle's XPC services), breaking auto-updates.
+	# Each nested component should keep its Info.plist CFBundleIdentifier.
 	if [[ "$SIGN_IDENTITY" == "Developer ID"* ]]; then
 		# Developer ID: Use timestamp for notarization
 		codesign --force --deep --options runtime --timestamp \
 			--entitlements "$ENTITLEMENTS" \
 			--sign "$SIGN_IDENTITY" \
-			--identifier "$BUNDLE_ID" \
 			"$APP_DIR" 2>/dev/null
 		echo "  Signed: $SIGN_IDENTITY"
 		echo "  ✓ Hardened runtime enabled (notarization-ready)"
@@ -515,7 +518,6 @@ else
 		codesign --force --deep --options runtime \
 			--entitlements "$ENTITLEMENTS" \
 			--sign "$SIGN_IDENTITY" \
-			--identifier "$BUNDLE_ID" \
 			"$APP_DIR" 2>/dev/null
 		echo "  Signed: $SIGN_IDENTITY"
 		echo "  ✓ Permissions persist across rebuilds"
