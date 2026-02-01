@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-01-31
+
+First stable release.
+
+### Features
+- **Live Sync**: Instantly syncs keyboard brightness when display brightness changes (via keys, Control Center, Touch Bar)
+- **Timed Sync**: Optional background check every 10 seconds as a safety net
+- **Battery Aware**: Pause background sync on battery or low battery
+- **Gamma Correction**: Adjustable brightness curve for perceptual matching
+- **Auto-Updates**: Built-in update system via Sparkle 2
+- **Privacy First**: Zero data collection, everything runs locally
+
+### Technical
+- ~12MB memory footprint, zero idle CPU
+- Event-driven architecture with no polling by default
+- Uses macOS private frameworks (CoreBrightness, DisplayServices)
+- Tested on M4 MacBook Pro, should work on all Apple Silicon Macs
+
 ## [1.0.0-beta12] - 2026-01-31
 
 ### Fixed

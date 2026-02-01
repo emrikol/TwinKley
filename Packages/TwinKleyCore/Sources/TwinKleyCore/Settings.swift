@@ -5,11 +5,11 @@ import Foundation
 /// App version information
 public enum AppInfo {
 	/// Display version string (e.g., "1.0.0-beta2", "1.0.0", "1.1.0")
-	public static let version = "1.0.0-beta12"
+	public static let version = "1.0.0"
 	/// Build number for Sparkle (auto-incremented by build script)
 	/// Combined with version base for CFBundleVersion (e.g., "1.0.0.2")
 	/// This number always increments regardless of version changes
-	public static let buildNumber = 50
+	public static let buildNumber = 52
 	/// Full app name with emojis for display
 	public static let name = "☀️ TwinK[l]ey ⌨️"
 	/// Short app name for menus
