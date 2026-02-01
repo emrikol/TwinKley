@@ -682,10 +682,6 @@ class AppBrightnessSyncManager: BrightnessSyncProtocol {
 		}
 	}
 
-	func clearHistory() {
-		syncHistory.removeAll()
-	}
-
 	var isReady: Bool {
 		keyboard.isReady
 	}
