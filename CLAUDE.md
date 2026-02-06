@@ -403,6 +403,17 @@ git diff v1.0.0-beta3..HEAD -- path/to/changed/files
 
 **IMPORTANT: Local-only files and directories (`NOTES.md`, `NEXT-STEPS-RELEASE.md`, `local_docs/`, `local_scripts/`) are for development only and are gitignored. Never commit them to the repository.**
 
+### GitHub Pages Landing Page
+
+The project website at [emrikol.github.io/TwinKley](https://emrikol.github.io/TwinKley/) lives on the **`gh-pages` branch**, not `main`. To view or edit it:
+
+```bash
+git show gh-pages:index.html          # View the file
+git checkout gh-pages -- index.html   # Check out to working dir (be careful)
+```
+
+The page includes JSON-LD structured data with a `softwareVersion` field that should be updated on each release. A CI workflow (`35e3149`) was set up to auto-update this.
+
 ---
 
 ## Common Patterns
