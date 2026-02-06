@@ -128,7 +128,7 @@ launchctl unload ~/Library/LaunchAgents/com.emrikol.TwinKley.plist
 
 ### Debug Mode
 
-Debug logs are written to `~/.twinkley-debug.log` and include timestamps, brightness events, and sync operations.
+Debug logs are written to `~/.twinkley-debug.log` and include timestamps, brightness values, power state changes, and sync operations. Debug logs do **not** contain keystrokes or personal input. Log files older than 7 days or larger than 1 MB are automatically cleaned up.
 
 **Enable at startup:**
 ```bash
@@ -141,6 +141,8 @@ Debug logs are written to `~/.twinkley-debug.log` and include timestamps, bright
 3. Debug mode will toggle on/off with a confirmation message
 
 This is useful for diagnosing issues without restarting the app. Perfect for investigating sync problems after sleep/wake cycles or other events.
+
+> **Note:** The Debug Window also includes a "Capture Events" feature that temporarily captures ALL keypresses to help diagnose brightness key detection. A privacy warning is displayed when this is active. See the [Privacy Policy](PRIVACY.md) for details.
 
 ## Configuration
 
@@ -383,9 +385,11 @@ Sometimes macOS **locks** the keyboard backlight and prevents all adjustments - 
 - ❌ No crash reports
 - ❌ No network connections (except update checks)
 - ✅ Settings stored locally in `~/.twinkley.json`
-- ✅ Optional debug logs in `~/.twinkley-debug.log`
+- ✅ Optional debug logs in `~/.twinkley-debug.log` (brightness values and sync operations only, no keystrokes)
 
 Auto-updates use Sparkle framework and only transmit: app version, macOS version, and CPU architecture. No personally identifiable information.
+
+> **Debug note:** An optional event capture feature in the Debug Window can temporarily log all keypresses for diagnostics. This is disabled by default, displays a privacy warning when active, and all data stays local. See the [Privacy Policy](PRIVACY.md) for details.
 
 **Read our full [Privacy Policy](PRIVACY.md)** for complete details.
 
