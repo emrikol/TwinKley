@@ -13,6 +13,10 @@ A lightweight macOS menu bar app that synchronizes your keyboard backlight brigh
 - **Privacy First**: Zero data collection - everything runs locally ([Privacy Policy](PRIVACY.md))
 - **Auto-start**: Optional LaunchAgent for login startup
 
+## Demo
+
+![TwinKley in action - keyboard brightness syncs with display brightness](docs/images/twinkley-in-action.gif)
+
 ## Screenshots
 
 ### Menu Bar
