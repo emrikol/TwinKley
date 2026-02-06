@@ -321,23 +321,10 @@
             text-align: center;
         }
 
-        .sync-visual {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1.5rem;
-            margin: 1.5rem 0;
-            font-size: 2.5rem;
-        }
-
-        .sync-arrow {
-            color: var(--accent);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.1); }
+        .demo-gif {
+            max-width: 100%;
+            border-radius: 12px;
+            margin: 1rem 0;
         }
 
         .how-it-works p {
@@ -506,11 +493,7 @@
         <section aria-labelledby="how-heading">
             <h2 id="how-heading">How It Works</h2>
             <div class="how-it-works">
-                <div class="sync-visual" aria-hidden="true">
-                    <span>🖥️</span>
-                    <span class="sync-arrow">⟷</span>
-                    <span>⌨️</span>
-                </div>
+                <img src="twinkley-in-action.gif" alt="TwinKley demo - keyboard brightness automatically follows display brightness" class="demo-gif">
                 <p>
                     TwinKley listens for macOS brightness events and adjusts your keyboard backlight to match. It only wakes when something changes, so there's no background polling.
                 </p>
