@@ -55,7 +55,7 @@ final class BrightnessSyncManagerTests: XCTestCase {
 		XCTAssertEqual(provider.callCount, 1)
 	}
 
-	func testSyncWithGammaCorrection() {
+	func testSyncWithGammaCorrection() throws {
 		provider.brightnessToReturn = 0.5
 
 		let result = syncManager.sync(gamma: 2.0)
@@ -63,10 +63,10 @@ final class BrightnessSyncManagerTests: XCTestCase {
 		XCTAssertTrue(result)
 		// 0.5^2.0 = 0.25
 		XCTAssertNotNil(controller.lastSetBrightness)
-		XCTAssertEqual(controller.lastSetBrightness!, 0.25, accuracy: 0.001)
+		XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), 0.25, accuracy: 0.001)
 	}
 
-	func testSyncWithGamma15() {
+	func testSyncWithGamma15() throws {
 		provider.brightnessToReturn = 0.5
 
 		let result = syncManager.sync(gamma: 1.5)
@@ -74,7 +74,7 @@ final class BrightnessSyncManagerTests: XCTestCase {
 		XCTAssertTrue(result)
 		// 0.5^1.5 ≈ 0.3536
 		XCTAssertNotNil(controller.lastSetBrightness)
-		XCTAssertEqual(controller.lastSetBrightness!, 0.3536, accuracy: 0.001)
+		XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), 0.3536, accuracy: 0.001)
 	}
 
 	func testSyncAtZeroBrightness() {
@@ -109,7 +109,7 @@ final class BrightnessSyncManagerTests: XCTestCase {
 		XCTAssertEqual(controller.callCount, 1)
 	}
 
-	func testSyncUpdatesForLargeChanges() {
+	func testSyncUpdatesForLargeChanges() throws {
 		provider.brightnessToReturn = 0.5
 		_ = syncManager.sync(gamma: 1.0)
 
@@ -120,7 +120,7 @@ final class BrightnessSyncManagerTests: XCTestCase {
 		// Should call controller twice
 		XCTAssertEqual(controller.callCount, 2)
 		XCTAssertNotNil(controller.lastSetBrightness)
-		XCTAssertEqual(controller.lastSetBrightness!, 0.51, accuracy: 0.001)
+		XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), 0.51, accuracy: 0.001)
 	}
 
 	// MARK: - Error Handling Tests
@@ -192,39 +192,39 @@ final class BrightnessSyncManagerTests: XCTestCase {
 
 	// MARK: - Gamma Edge Cases
 
-	func testSyncWithLowBrightnessAndHighGamma() {
+	func testSyncWithLowBrightnessAndHighGamma() throws {
 		provider.brightnessToReturn = 0.1
 
 		_ = syncManager.sync(gamma: 2.2)
 
 		// 0.1^2.2 ≈ 0.0063
 		XCTAssertNotNil(controller.lastSetBrightness)
-		XCTAssertEqual(controller.lastSetBrightness!, 0.0063, accuracy: 0.001)
+		XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), 0.0063, accuracy: 0.001)
 	}
 
-	func testSyncWithMultipleGammaValues() {
+	func testSyncWithMultipleGammaValues() throws {
 		provider.brightnessToReturn = 0.5
 
 		_ = syncManager.sync(gamma: 1.0)
 		XCTAssertNotNil(controller.lastSetBrightness)
-		XCTAssertEqual(controller.lastSetBrightness!, 0.5, accuracy: 0.001)
+		XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), 0.5, accuracy: 0.001)
 
 		provider.brightnessToReturn = 0.6
 		_ = syncManager.sync(gamma: 1.5)
 		// 0.6^1.5 ≈ 0.4648
 		XCTAssertNotNil(controller.lastSetBrightness)
-		XCTAssertEqual(controller.lastSetBrightness!, 0.4648, accuracy: 0.001)
+		XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), 0.4648, accuracy: 0.001)
 
 		provider.brightnessToReturn = 0.7
 		_ = syncManager.sync(gamma: 2.2)
 		// 0.7^2.2 ≈ 0.4563
 		XCTAssertNotNil(controller.lastSetBrightness)
-		XCTAssertEqual(controller.lastSetBrightness!, 0.4563, accuracy: 0.001)
+		XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), 0.4563, accuracy: 0.001)
 	}
 
 	// MARK: - Full Range Tests
 
-	func testSyncAcrossFullBrightnessRange() {
+	func testSyncAcrossFullBrightnessRange() throws {
 		let testValues: [Float] = [0.0, 0.25, 0.5, 0.75, 1.0]
 		let gamma = 1.5
 
@@ -235,7 +235,7 @@ final class BrightnessSyncManagerTests: XCTestCase {
 			XCTAssertTrue(result)
 			let expected = Float(pow(Double(value), gamma))
 			XCTAssertNotNil(controller.lastSetBrightness)
-			XCTAssertEqual(controller.lastSetBrightness!, expected, accuracy: 0.001)
+			XCTAssertEqual(try XCTUnwrap(controller.lastSetBrightness), expected, accuracy: 0.001)
 		}
 	}
 

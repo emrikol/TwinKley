@@ -20,10 +20,10 @@ private let helpFlagPresent = CommandLine.arguments.contains("--help") || Comman
 private let showBrightnessFlagPresent = CommandLine.arguments.contains("--show-brightness")
 private let syncHistoryFlagPresent = CommandLine.arguments.contains("--sync-history")
 
-// Debug enabled if any debug flag is present (simple check, no UI library needed)
+/// Debug enabled if any debug flag is present (simple check, no UI library needed)
 private var debugEnabled = debugFlagPresent || verboseFlagPresent || syncHistoryFlagPresent
 
-// Minimal debug options struct (populated from CLI flags without loading UI library)
+/// Minimal debug options struct (populated from CLI flags without loading UI library)
 private struct DebugOptionsMinimal {
 	var loggingEnabled: Bool
 	var captureKeypresses: Bool
@@ -87,13 +87,13 @@ private func getUILoader() -> NSObject? {
 	return nil
 }
 
-// Debug log file for capturing output when running in background
+/// Debug log file for capturing output when running in background
 private var debugLogURL: URL? {
 	guard debugEnabled else { return nil }
 	return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".twinkley-debug.log")
 }
 
-// Handle --help flag (loads UI library for full help text)
+/// Handle --help flag (loads UI library for full help text)
 private func handleHelpIfNeeded() {
 	guard helpFlagPresent else { return }
 	print("\(AppInfo.name) v\(AppInfo.version)")
@@ -115,7 +115,7 @@ private func handleHelpIfNeeded() {
 	exit(0)
 }
 
-// Handle --health-check flag (uses UI library for most output)
+/// Handle --health-check flag (uses UI library for most output)
 private func handleHealthCheck() -> Bool {
 	guard CommandLine.arguments.contains("--health-check") else { return false }
 
@@ -284,7 +284,7 @@ private func isClamshellClosed() -> Bool {
 
 // MARK: - Display Brightness (using DisplayServices private framework)
 
-// Cache the framework handle to avoid repeated dlopen/dlclose
+/// Cache the framework handle to avoid repeated dlopen/dlclose
 private var displayServicesHandle: UnsafeMutableRawPointer? = dlopen(
 	"/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices",
 	RTLD_NOW
@@ -323,10 +323,10 @@ class KeyboardBrightnessController: BrightnessController, KeyboardBrightnessProt
 	private let isSaturatedSelector = NSSelectorFromString("isBacklightSaturatedOnKeyboard:")
 	private let isAutoBrightnessSelector = NSSelectorFromString("isAutoBrightnessEnabledForKeyboard:")
 
-	// Cache objc_msgSend pointer to avoid repeated dlsym lookups
+	/// Cache objc_msgSend pointer to avoid repeated dlsym lookups
 	private static let objcMsgSendPtr: UnsafeMutableRawPointer = dlsym(dlopen(nil, RTLD_NOW), "objc_msgSend")!
 
-	// Lazy initialization - only load framework when first needed
+	/// Lazy initialization - only load framework when first needed
 	private func ensureInitialized() -> Bool {
 		if isInitialized { return client != nil }
 		isInitialized = true
@@ -450,14 +450,14 @@ class BrightnessKeyMonitor: BrightnessMonitorProtocol {
 	// - keyState: State flags (for NX) or key code (for key events)
 	var onEventCaptured: ((String, Int, Int) -> Void)?
 
-	// When true, capture ALL key events (not just NX_SYSDEFINED)
-	// This is enabled by the debug window during capture sessions
+	/// When true, capture ALL key events (not just NX_SYSDEFINED)
+	/// This is enabled by the debug window during capture sessions
 	var fullCaptureEnabled = false
 
-	// Event tap health tracking
+	/// Event tap health tracking
 	var health = EventTapHealth()
 
-	// NX keyCodes to treat as brightness events (configurable via settings)
+	/// NX keyCodes to treat as brightness events (configurable via settings)
 	var brightnessKeyCodes: [Int] = Settings.brightnessKeyCodesDefault
 
 	func start() -> Bool {
@@ -732,7 +732,9 @@ private class SettingsProtocolAdapter: SettingsProtocol {
 		self.setSettings = setSettings
 	}
 
-	var settings: Settings { getSettings() }
+	var settings: Settings {
+		getSettings()
+	}
 
 	func update(_ block: (inout Settings) -> Void) {
 		var currentSettings = getSettings()
@@ -799,9 +801,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 
 	// Settings loaded at startup via minimal SettingsLoader (no full SettingsManager needed in main binary)
 	private var settings = SettingsLoader.load()
-	private func saveSettings() { SettingsLoader.save(settings) }
+	private func saveSettings() {
+		SettingsLoader.save(settings)
+	}
 
-	// Adapter to expose settings via SettingsProtocol for UI windows
+	/// Adapter to expose settings via SettingsProtocol for UI windows
 	private lazy var settingsAdapter = SettingsProtocolAdapter(
 		getSettings: { [weak self] in self?.settings ?? Settings.default },
 		setSettings: { [weak self] newSettings in
@@ -819,10 +823,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 	)
 
 	#if !APP_STORE
-	// Sparkle delegate for capturing detailed error information
+	/// Sparkle delegate for capturing detailed error information
 	private let sparkleDelegate = SparkleUpdateDelegate()
 
-	// Lazy-load Sparkle only when needed (saves ~2-3 MB during normal operation)
+	/// Lazy-load Sparkle only when needed (saves ~2-3 MB during normal operation)
 	private lazy var updaterController: SPUStandardUpdaterController = {
 		debugLog("Lazy-loading Sparkle framework...")
 		return SPUStandardUpdaterController(
@@ -837,7 +841,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 	private var debugWindow: DebugWindowProtocol?
 	private var aboutWindow: AboutWindowProtocol?
 
-	// Debouncer for keypress sync - coalesces rapid key presses into fewer syncs
+	/// Debouncer for keypress sync - coalesces rapid key presses into fewer syncs
 	private let keypressSyncDebouncer = Debouncer(delay: 0.3)
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
@@ -1012,7 +1016,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 		statusItem.menu = menu
 	}
 
-	// Update status text when menu opens (reflects current state)
+	/// Update status text when menu opens (reflects current state)
 	func menuWillOpen(_ menu: NSMenu) {
 		let statusText = if !syncManager.isReady {
 			"Status: Error"
@@ -1172,7 +1176,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 
 	private var displayCallbackRegistered = false
 
-	// Static callback function for CGDisplayRegisterReconfigurationCallback
+	/// Static callback function for CGDisplayRegisterReconfigurationCallback
 	private static let displayReconfigCallback: CGDisplayReconfigurationCallBack = { _, flags, userInfo in
 		guard let userInfo else { return }
 		let delegate = Unmanaged<AppDelegate>.fromOpaque(userInfo).takeUnretainedValue()
@@ -1369,7 +1373,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 	}
 
 	#if !APP_STORE
-	// Loading window shown while checking for updates
+	/// Loading window shown while checking for updates
 	private var updateCheckWindow: NSWindow?
 
 	@objc
@@ -1472,7 +1476,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 	}
 }
 
-// Show privacy warning for capture mode
+/// Show privacy warning for capture mode
 private func showCapturePrivacyWarning() {
 	guard debugOptions.captureKeypresses else { return }
 
@@ -1490,7 +1494,7 @@ private func showCapturePrivacyWarning() {
 	sleep(3)
 }
 
-// Notification for settings changes
+/// Notification for settings changes
 extension Notification.Name {
 	static let settingsChanged = Notification.Name("settingsChanged")
 }

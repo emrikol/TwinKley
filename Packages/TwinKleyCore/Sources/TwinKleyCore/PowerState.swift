@@ -15,7 +15,9 @@ public struct PowerState {
 	public var batteryLevel: Int
 
 	/// Whether battery level is considered low (below 20%)
-	public var isLowBattery: Bool { batteryLevel >= 0 && batteryLevel < 20 }
+	public var isLowBattery: Bool {
+		batteryLevel >= 0 && batteryLevel < 20
+	}
 
 	/// Creates a power state with the given values
 	/// - Parameters:

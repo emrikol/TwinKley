@@ -38,10 +38,10 @@ import TwinKleyCore
 	private var captureTimer: Timer?
 	private var capturedEvents: [(Date, String)] = []
 
-	// Context with all dependencies (protocol-based)
+	/// Context with all dependencies (protocol-based)
 	private var context: UIContext?
 
-	// Track current debug state (updated from AppDelegate)
+	/// Track current debug state (updated from AppDelegate)
 	public var isDebugModeEnabled = false {
 		didSet {
 			debugToggle?.state = isDebugModeEnabled ? .on : .off
@@ -720,8 +720,8 @@ import TwinKleyCore
 		capturedEvents = []
 	}
 
-	// Called from AppDelegate when events are received
-	// Use -1 for displayBrightness/keyboardBrightness if unavailable
+	/// Called from AppDelegate when events are received
+	/// Use -1 for displayBrightness/keyboardBrightness if unavailable
 	@objc public func recordCapturedEvent(eventType: String, keyCode: Int, keyState: Int, displayBrightness: Float, keyboardBrightness: Float) {
 		guard isCapturing else { return }
 

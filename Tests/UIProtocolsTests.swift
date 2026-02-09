@@ -3,7 +3,9 @@ import XCTest
 
 /// Simple mock provider for testing UIContext
 private struct MockProvider: PowerSourceProvider {
-	func getPowerSourcesInfo() -> [[String: Any]]? { nil }
+	func getPowerSourcesInfo() -> [[String: Any]]? {
+		nil
+	}
 }
 
 final class UIContextTests: XCTestCase {

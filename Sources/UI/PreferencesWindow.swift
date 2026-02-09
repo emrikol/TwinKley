@@ -3,7 +3,7 @@ import TwinKleyCore
 
 /// Preferences window controller - dynamically loaded UI component
 @objc public class PreferencesWindowController: NSWindowController, PreferencesWindowProtocol {
-	// Context with all dependencies (protocol-based)
+	/// Context with all dependencies (protocol-based)
 	private var context: UIContext?
 
 	// UI Controls

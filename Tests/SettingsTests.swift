@@ -238,7 +238,7 @@ final class SettingsTests: XCTestCase {
 		let encoder = JSONEncoder()
 		encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 		let data = try encoder.encode(settings)
-		let jsonString = String(data: data, encoding: .utf8)!
+		let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
 		XCTAssertTrue(jsonString.contains("\"liveSyncEnabled\" : true"))
 		XCTAssertTrue(jsonString.contains("\"timedSyncEnabled\" : false"))
@@ -368,7 +368,7 @@ final class SettingsTests: XCTestCase {
 		let encoder = JSONEncoder()
 		encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 		let data = try encoder.encode(settings)
-		let jsonString = String(data: data, encoding: .utf8)!
+		let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
 		// Should save with new key name
 		XCTAssertTrue(jsonString.contains("\"liveSyncEnabled\" : true"))
@@ -392,7 +392,7 @@ final class SettingsTests: XCTestCase {
 			"hasAcknowledgedUpdatePrivacy": false
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
 		// Should be clamped to minimum (100ms)
@@ -413,7 +413,7 @@ final class SettingsTests: XCTestCase {
 			"hasAcknowledgedUpdatePrivacy": false
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
 		// Should be clamped to maximum (60000ms)
@@ -434,7 +434,7 @@ final class SettingsTests: XCTestCase {
 			"hasAcknowledgedUpdatePrivacy": false
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
 		// Should be clamped to minimum (100ms)
@@ -455,7 +455,7 @@ final class SettingsTests: XCTestCase {
 			"hasAcknowledgedUpdatePrivacy": false
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
 		// Should be clamped to minimum (0.5)
@@ -476,7 +476,7 @@ final class SettingsTests: XCTestCase {
 			"hasAcknowledgedUpdatePrivacy": false
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
 		// Should be clamped to maximum (4.0)
@@ -497,7 +497,7 @@ final class SettingsTests: XCTestCase {
 			"hasAcknowledgedUpdatePrivacy": false
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
 		// Should be clamped to minimum (100ms) - prevents CPU spin
@@ -514,7 +514,7 @@ final class SettingsTests: XCTestCase {
 			"timedSyncIntervalMs": 5000
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 		let defaults = Settings()
 
@@ -534,7 +534,7 @@ final class SettingsTests: XCTestCase {
 	func testDecodingEmptyJSONUsesAllDefaults() throws {
 		// Empty JSON should decode successfully with all defaults
 		let json = "{}"
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 		let defaults = Settings()
 
@@ -557,7 +557,7 @@ final class SettingsTests: XCTestCase {
 			"brightnessGamma": 10.0
 		}
 		"""
-		let data = json.data(using: .utf8)!
+		let data = try XCTUnwrap(json.data(using: .utf8))
 		let decoded = try JSONDecoder().decode(Settings.self, from: data)
 		let defaults = Settings()
 
