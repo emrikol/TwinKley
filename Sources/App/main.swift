@@ -268,6 +268,20 @@ class PowerStateMonitor {
 	}
 }
 
+// MARK: - Clamshell (Lid) State Detection
+
+/// Check if the MacBook lid is closed (clamshell mode with external display)
+/// Returns false on desktop Macs (property doesn't exist)
+private func isClamshellClosed() -> Bool {
+	let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+	guard service != IO_OBJECT_NULL else { return false }
+	defer { IOObjectRelease(service) }
+	guard let prop = IORegistryEntryCreateCFProperty(service, "AppleClamshellState" as CFString, kCFAllocatorDefault, 0) else {
+		return false
+	}
+	return (prop.takeRetainedValue() as? Bool) ?? false
+}
+
 // MARK: - Display Brightness (using DisplayServices private framework)
 
 // Cache the framework handle to avoid repeated dlopen/dlclose
@@ -781,6 +795,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 	private var timedSyncMenuItem: NSMenuItem!
 	private var statusMenuItem: NSMenuItem!
 	private var fallbackTimer: Timer?
+	private var isClamshellMode = false
 
 	// Settings loaded at startup via minimal SettingsLoader (no full SettingsManager needed in main binary)
 	private var settings = SettingsLoader.load()
@@ -841,6 +856,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 		checkFirstLaunch()
 		checkAccessibilityPermission()
 		setupBrightnessMonitor()
+		isClamshellMode = isClamshellClosed()
 		setupObservers()
 		syncManager.sync(gamma: settings.brightnessGamma, trigger: .startup)
 	}
@@ -1002,6 +1018,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 			"Status: Error"
 		} else if keyboardController.isBacklightSuppressed() {
 			"Status: Locked" // Keyboard brightness locked by ambient light sensor
+		} else if isClamshellMode {
+			"Status: Clamshell" // Lid closed, keyboard hidden
 		} else if !settings.liveSyncEnabled, !settings.timedSyncEnabled {
 			"Status: Disabled"
 		} else {
@@ -1140,6 +1158,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 		updateTimerState()
 	}
 
+	// MARK: - Clamshell State
+
+	private func updateClamshellState() {
+		let wasClamshell = isClamshellMode
+		isClamshellMode = isClamshellClosed()
+		if wasClamshell != isClamshellMode {
+			debugLog("Clamshell mode: \(isClamshellMode ? "detected" : "cleared")")
+		}
+	}
+
 	// MARK: - Display Callback Management
 
 	private var displayCallbackRegistered = false
@@ -1149,7 +1177,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 		guard let userInfo else { return }
 		let delegate = Unmanaged<AppDelegate>.fromOpaque(userInfo).takeUnretainedValue()
 
-		// Check if it's a relevant change (not just display added/removed)
+		// Display add/remove happens during lid open/close — update clamshell state
+		if flags.contains(.addFlag) || flags.contains(.removeFlag) {
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+				delegate.updateClamshellState()
+			}
+		}
+
+		// Sync brightness on mode/main changes
 		if flags.contains(.setModeFlag) || flags.contains(.setMainFlag) {
 			debugLog("Display reconfiguration detected")
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -1224,6 +1259,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate { // swiftlin
 	private func onWake() {
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
 			guard let self else { return }
+			updateClamshellState()
 			syncManager.sync(gamma: settings.brightnessGamma, trigger: .wake)
 		}
 	}

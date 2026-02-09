@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-09
+
+### Added
+- **Clamshell Mode Detection**: Detects when MacBook lid is closed (clamshell mode with external display)
+- Menu status shows "Clamshell" when lid is closed, so users know why keyboard sync is inactive
+- Clamshell state updates automatically on display connect/disconnect, wake, and startup
+
 ## [1.0.0] - 2026-01-31
 
 First stable release.
