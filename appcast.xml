@@ -2,6 +2,14 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <item>
+            <title>1.1.0</title>
+            <pubDate>Tue, 10 Feb 2026 00:13:37 +0000</pubDate>
+            <sparkle:version>1.1.0.54</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/emrikol/TwinKley/releases/download/v1.1.0/TwinKley.zip" length="1205025" type="application/octet-stream" sparkle:edSignature="Ci6GK263F2JPcnnT8iVKBoeECVIrC3HC/enTU0kaIFNY1JwQ2EofPL3ktZUK6Kd7gYGBPWmNwpkTFyvAhHhiCQ=="/>
+        </item>
+        <item>
             <title>1.0.0</title>
             <pubDate>Sun, 01 Feb 2026 03:59:18 +0000</pubDate>
             <sparkle:version>1.0.0.52</sparkle:version>
